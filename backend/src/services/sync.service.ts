@@ -1,0 +1,326 @@
+import fs from 'fs';
+import path from 'path';
+import { EventEmitter } from 'events';
+import { BackupModel } from '../models/backup.model.js';
+import { FileRecordModel } from '../models/file-record.model.js';
+import { SettingsModel } from '../models/settings.model.js';
+import { GDriveService } from './gdrive.service.js';
+import { computeFileHash } from '../utils/hash.js';
+import { logger } from '../utils/logger.js';
+
+export interface SyncProgress {
+  jobId: number;
+  total: number;
+  synced: number;
+  failed: number;
+  bytesTransferred: number;
+  currentFile: string;
+}
+
+export class SyncService extends EventEmitter {
+  private gdrive: GDriveService;
+  private isCancelled = false;
+  private isRunning = false;
+
+  constructor(gdrive: GDriveService) {
+    super();
+    this.gdrive = gdrive;
+  }
+
+  get running(): boolean {
+    return this.isRunning;
+  }
+
+  cancelSync(): void {
+    this.isCancelled = true;
+    logger.info('Sync cancellation requested');
+  }
+
+  /**
+   * Run a full sync from source folder to Google Drive.
+   */
+  async runSync(jobId: number, sourcePath: string): Promise<void> {
+    if (this.isRunning) {
+      throw new Error('Sync is already running');
+    }
+
+    this.isRunning = true;
+    this.isCancelled = false;
+
+    const driveFolderId = SettingsModel.get('drive_folder_id');
+    if (!driveFolderId) {
+      BackupModel.fail(jobId, 'Google Drive folder ID is not configured');
+      this.isRunning = false;
+      return;
+    }
+
+    if (!this.gdrive.isInitialized()) {
+      BackupModel.fail(jobId, 'Google Drive client is not initialized');
+      this.isRunning = false;
+      return;
+    }
+
+    try {
+      // Normalize path for cross-platform
+      const normalizedSource = path.resolve(sourcePath);
+
+      if (!fs.existsSync(normalizedSource)) {
+        BackupModel.fail(jobId, `Source path does not exist: ${normalizedSource}`);
+        this.isRunning = false;
+        return;
+      }
+
+      // Scan all files recursively
+      const files = this.scanDirectory(normalizedSource);
+      const total = files.length;
+
+      BackupModel.updateProgress(jobId, 0, 0, 0, total);
+      logger.info(`Sync started: ${total} files found in ${normalizedSource}`);
+
+      let synced = 0;
+      let failed = 0;
+      let bytesTransferred = 0;
+
+      // Build folder structure map for Drive
+      const folderMap = new Map<string, string>();
+      folderMap.set('', driveFolderId);
+
+      for (const filePath of files) {
+        if (this.isCancelled) {
+          BackupModel.cancel(jobId);
+          logger.info('Sync cancelled by user');
+          this.isRunning = false;
+          return;
+        }
+
+        try {
+          const relativePath = path.relative(normalizedSource, filePath);
+          const relativeDir = path.dirname(relativePath);
+
+          // Ensure folder structure exists on Drive
+          const parentId = await this.ensureDriveFolders(
+            relativeDir,
+            driveFolderId,
+            folderMap
+          );
+
+          // Check if file needs syncing
+          const stat = fs.statSync(filePath);
+          const fileHash = await computeFileHash(filePath);
+          const existingRecord = FileRecordModel.findByPath(filePath);
+
+          if (
+            existingRecord &&
+            existingRecord.file_hash === fileHash &&
+            existingRecord.status === 'synced' &&
+            existingRecord.drive_file_id
+          ) {
+            // File hasn't changed, skip
+            synced++;
+            BackupModel.updateProgress(jobId, synced, failed, bytesTransferred, total);
+            continue;
+          }
+
+          // Upload or update
+          let driveResult;
+          if (existingRecord?.drive_file_id) {
+            driveResult = await this.gdrive.updateFile(existingRecord.drive_file_id, filePath);
+            if (!driveResult) {
+              // File was deleted from Drive, re-upload
+              driveResult = await this.gdrive.uploadFile(filePath, parentId);
+            }
+          } else {
+            driveResult = await this.gdrive.uploadFile(filePath, parentId);
+          }
+
+          if (driveResult) {
+            FileRecordModel.upsert({
+              localPath: filePath,
+              driveFileId: driveResult.id,
+              driveParentId: parentId,
+              fileHash,
+              fileSize: stat.size,
+              lastModified: stat.mtime.toISOString(),
+              status: 'synced',
+            });
+
+            bytesTransferred += stat.size;
+            synced++;
+          } else {
+            failed++;
+            FileRecordModel.markError(filePath);
+          }
+
+          // Emit progress
+          const progress: SyncProgress = {
+            jobId,
+            total,
+            synced,
+            failed,
+            bytesTransferred,
+            currentFile: relativePath,
+          };
+          this.emit('progress', progress);
+          BackupModel.updateProgress(jobId, synced, failed, bytesTransferred, total);
+        } catch (fileError: any) {
+          failed++;
+          FileRecordModel.upsert({
+            localPath: filePath,
+            status: 'error',
+          });
+          logger.error(`Failed to sync file ${filePath}:`, fileError.message);
+          BackupModel.updateProgress(jobId, synced, failed, bytesTransferred, total);
+        }
+      }
+
+      // Mark job as completed
+      BackupModel.complete(jobId);
+      logger.info(`Sync completed: ${synced} synced, ${failed} failed out of ${total}`);
+      this.emit('complete', { jobId, synced, failed, total, bytesTransferred });
+    } catch (error: any) {
+      BackupModel.fail(jobId, error.message);
+      logger.error(`Sync failed:`, error);
+      this.emit('error', { jobId, error: error.message });
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
+   * Sync a single file (used by file watcher).
+   */
+  async syncSingleFile(filePath: string): Promise<void> {
+    const driveFolderId = SettingsModel.get('drive_folder_id');
+    const sourcePath = SettingsModel.get('source_path');
+
+    if (!driveFolderId || !sourcePath || !this.gdrive.isInitialized()) {
+      return;
+    }
+
+    try {
+      const normalizedSource = path.resolve(sourcePath);
+      const relativePath = path.relative(normalizedSource, filePath);
+      const relativeDir = path.dirname(relativePath);
+
+      // Build folder on Drive
+      const folderMap = new Map<string, string>();
+      folderMap.set('', driveFolderId);
+      const parentId = await this.ensureDriveFolders(relativeDir, driveFolderId, folderMap);
+
+      const stat = fs.statSync(filePath);
+      const fileHash = await computeFileHash(filePath);
+      const existingRecord = FileRecordModel.findByPath(filePath);
+
+      if (existingRecord?.file_hash === fileHash && existingRecord.status === 'synced') {
+        return; // No changes
+      }
+
+      let driveResult;
+      if (existingRecord?.drive_file_id) {
+        driveResult = await this.gdrive.updateFile(existingRecord.drive_file_id, filePath);
+        if (!driveResult) {
+          driveResult = await this.gdrive.uploadFile(filePath, parentId);
+        }
+      } else {
+        driveResult = await this.gdrive.uploadFile(filePath, parentId);
+      }
+
+      if (driveResult) {
+        FileRecordModel.upsert({
+          localPath: filePath,
+          driveFileId: driveResult.id,
+          driveParentId: parentId,
+          fileHash,
+          fileSize: stat.size,
+          lastModified: stat.mtime.toISOString(),
+          status: 'synced',
+        });
+        logger.debug(`Watcher synced: ${relativePath}`);
+      }
+    } catch (error: any) {
+      logger.error(`Watcher sync failed for ${filePath}:`, error.message);
+      FileRecordModel.markError(filePath);
+    }
+  }
+
+  /**
+   * Handle file deletion (from watcher).
+   */
+  async handleFileDeletion(filePath: string): Promise<void> {
+    const deleteFromDrive = SettingsModel.get('delete_on_drive_when_deleted') === 'true';
+    const record = FileRecordModel.findByPath(filePath);
+
+    if (record?.drive_file_id && deleteFromDrive) {
+      try {
+        await this.gdrive.deleteFile(record.drive_file_id);
+      } catch (error: any) {
+        logger.error(`Failed to delete from Drive: ${filePath}`, error.message);
+      }
+    }
+
+    FileRecordModel.markDeleted(filePath);
+    logger.debug(`File deleted: ${filePath}`);
+  }
+
+  /**
+   * Recursively scan a directory and return all file paths.
+   */
+  private scanDirectory(dirPath: string): string[] {
+    const files: string[] = [];
+
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      // Skip hidden files/folders and common exclusions
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+        continue;
+      }
+
+      if (entry.isDirectory()) {
+        files.push(...this.scanDirectory(fullPath));
+      } else if (entry.isFile()) {
+        files.push(fullPath);
+      }
+    }
+
+    return files;
+  }
+
+  /**
+   * Ensure all intermediate folders exist on Google Drive.
+   */
+  private async ensureDriveFolders(
+    relativeDirPath: string,
+    rootFolderId: string,
+    folderMap: Map<string, string>
+  ): Promise<string> {
+    if (relativeDirPath === '.' || relativeDirPath === '') {
+      return rootFolderId;
+    }
+
+    // Normalize path separators
+    const normalizedPath = relativeDirPath.split(path.sep).join('/');
+
+    if (folderMap.has(normalizedPath)) {
+      return folderMap.get(normalizedPath)!;
+    }
+
+    const parts = normalizedPath.split('/');
+    let currentParentId = rootFolderId;
+
+    for (let i = 0; i < parts.length; i++) {
+      const partialPath = parts.slice(0, i + 1).join('/');
+
+      if (folderMap.has(partialPath)) {
+        currentParentId = folderMap.get(partialPath)!;
+      } else {
+        const folderId = await this.gdrive.createFolder(parts[i], currentParentId);
+        folderMap.set(partialPath, folderId);
+        currentParentId = folderId;
+      }
+    }
+
+    return currentParentId;
+  }
+}
