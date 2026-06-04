@@ -88,7 +88,7 @@ export class SyncService extends EventEmitter {
       const total = files.length;
 
       BackupModel.updateProgress(jobId, 0, 0, 0, total);
-      logger.info(`Sync started: ${total} files found in ${normalizedSource}`);
+      logger.info(`Sync started: ${total} files found in ${validPaths.join(', ')}`);
 
       let synced = 0;
       let failed = 0;
