@@ -1,18 +1,25 @@
 import { Response } from 'express';
+import { google } from 'googleapis';
 import { body, validationResult } from 'express-validator';
 import type { AuthRequest } from '../middleware/auth.middleware.js';
 import { SettingsModel } from '../models/settings.model.js';
 import { createDriveClient } from '../config/google-drive.js';
 import { logger } from '../utils/logger.js';
+import { getGDriveService } from './filemanager.controller.js';
 
 export const settingsValidation = [
   body('source_path').optional().isString().trim().isLength({ min: 1 }),
+  body('file_manager_path').optional().isString().trim(),
   body('drive_folder_id').optional().isString().trim(),
   body('backup_schedule').optional().isString().trim(),
   body('auto_backup_enabled').optional().isIn(['true', 'false']),
   body('file_watcher_enabled').optional().isIn(['true', 'false']),
   body('delete_on_drive_when_deleted').optional().isIn(['true', 'false']),
   body('max_concurrent_uploads').optional().isInt({ min: 1, max: 10 }),
+  body('google_client_id').optional().isString().trim(),
+  body('google_client_secret').optional().isString().trim(),
+  body('google_redirect_uri').optional().isString().trim(),
+  body('google_refresh_token').optional().isString().trim(),
 ];
 
 export async function getSettings(req: AuthRequest, res: Response): Promise<void> {
@@ -35,6 +42,7 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
   try {
     const allowedKeys = [
       'source_path',
+      'file_manager_path',
       'drive_folder_id',
       'backup_schedule',
       'auto_backup_enabled',
@@ -43,6 +51,10 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
       'max_concurrent_uploads',
       'app_name',
       'timezone',
+      'google_client_id',
+      'google_client_secret',
+      'google_redirect_uri',
+      'google_refresh_token',
     ];
 
     const updates: Record<string, string> = {};
@@ -60,6 +72,12 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
     SettingsModel.setMultiple(updates);
     logger.info(`Settings updated: ${Object.keys(updates).join(', ')}`);
 
+    // Re-initialize GDriveService so it picks up new credentials immediately
+    const gdriveService = getGDriveService();
+    if (gdriveService) {
+      gdriveService.initialize();
+    }
+
     const settings = SettingsModel.getAll();
     res.json({ message: 'Settings updated', settings });
   } catch (error) {
@@ -70,7 +88,14 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
 
 export async function testDriveConnection(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const drive = createDriveClient();
+    const config = {
+      clientId: req.body.google_client_id,
+      clientSecret: req.body.google_client_secret,
+      redirectUri: req.body.google_redirect_uri,
+      refreshToken: req.body.google_refresh_token,
+    };
+    
+    const drive = createDriveClient(config);
     if (!drive) {
       res.status(400).json({
         connected: false,
@@ -104,5 +129,65 @@ export async function testDriveConnection(req: AuthRequest, res: Response): Prom
       connected: false,
       error: error.message || 'Failed to connect to Google Drive',
     });
+  }
+}
+
+export async function getDriveAuthUrl(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const clientId = SettingsModel.get('google_client_id');
+    const clientSecret = SettingsModel.get('google_client_secret');
+    const redirectUri = SettingsModel.get('google_redirect_uri');
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      res.status(400).json({ error: 'Google Client ID, Secret, and Redirect URI must be configured first.' });
+      return;
+    }
+
+    const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+
+    const authUrl = oAuth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['https://www.googleapis.com/auth/drive'],
+      prompt: 'consent',
+    });
+
+    res.json({ authUrl });
+  } catch (error: any) {
+    logger.error('Failed to generate drive auth url:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+}
+
+export async function exchangeDriveCode(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      res.status(400).json({ error: 'Authorization code is required' });
+      return;
+    }
+
+    const clientId = SettingsModel.get('google_client_id');
+    const clientSecret = SettingsModel.get('google_client_secret');
+    const redirectUri = SettingsModel.get('google_redirect_uri');
+
+    const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    const { tokens } = await oAuth2Client.getToken(code);
+
+    if (tokens.refresh_token) {
+      SettingsModel.set('google_refresh_token', tokens.refresh_token);
+      logger.info('Google refresh token updated via UI');
+      
+      const gdriveService = getGDriveService();
+      if (gdriveService) {
+        gdriveService.initialize();
+      }
+      
+      res.json({ message: 'Refresh token obtained successfully', settings: SettingsModel.getAll() });
+    } else {
+      res.status(400).json({ error: 'No refresh token received. You may need to disconnect the app from your Google account and try again to force a new consent screen.' });
+    }
+  } catch (error: any) {
+    logger.error('Failed to exchange drive code:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 }

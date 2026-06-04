@@ -8,6 +8,7 @@ export interface Setting {
 
 const DEFAULTS: Record<string, string> = {
   source_path: '/home/user/backup-source',
+  file_manager_path: '/home/user/file-manager',
   drive_folder_id: '',
   backup_schedule: '0 */6 * * *',
   auto_backup_enabled: 'false',
@@ -18,6 +19,10 @@ const DEFAULTS: Record<string, string> = {
   timezone: 'UTC',
   exclude_patterns: '*.log\n*.tmp\n*.cache\n.DS_Store\nThumbs.db\nnode_modules/**\n.git/**',
   max_file_size_mb: '0',
+  google_client_id: '',
+  google_client_secret: '',
+  google_redirect_uri: 'http://localhost:4300/dashboard/settings',
+  google_refresh_token: '',
 };
 
 export const SettingsModel = {

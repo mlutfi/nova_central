@@ -116,6 +116,12 @@ export default function BackupPage() {
       : 0
     : 0;
 
+  const sourcePathDisplay = settings?.source_path 
+    ? settings.source_path.split('\n').filter(Boolean).length > 1 
+      ? `${settings.source_path.split('\n').filter(Boolean).length} folders configured`
+      : settings.source_path 
+    : 'Not configured';
+
   return (
     <div className="space-y-6">
       {/* Server Time Display */}
@@ -144,7 +150,7 @@ export default function BackupPage() {
             <div className="flex items-center gap-3 text-sm">
               <span className="text-muted-foreground">Source:</span>
               <code className="text-xs font-mono bg-secondary/60 px-2 py-1 rounded">
-                {settings?.source_path ?? 'Not configured'}
+                {sourcePathDisplay}
               </code>
             </div>
 

@@ -44,6 +44,12 @@ export default function DashboardPage() {
     }
   };
 
+  const sourcePathDisplay = stats?.settings?.sourcePath 
+    ? stats.settings.sourcePath.split('\n').filter(Boolean).length > 1 
+      ? `${stats.settings.sourcePath.split('\n').filter(Boolean).length} folders`
+      : stats.settings.sourcePath 
+    : '—';
+
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
@@ -166,7 +172,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Source Path</span>
               <span className="text-xs font-mono text-foreground/70 truncate max-w-[140px]" title={stats?.settings?.sourcePath}>
-                {stats?.settings?.sourcePath ?? '—'}
+                {sourcePathDisplay}
               </span>
             </div>
 

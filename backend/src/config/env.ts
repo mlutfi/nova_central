@@ -15,9 +15,9 @@ function requireEnv(key: string, fallback?: string): string {
 }
 
 export const env = {
-  PORT: parseInt(requireEnv('PORT', '4000'), 10),
+  PORT: parseInt(requireEnv('PORT', '4400'), 10),
   NODE_ENV: requireEnv('NODE_ENV', 'development'),
-  FRONTEND_URL: requireEnv('FRONTEND_URL', 'http://localhost:3000'),
+  FRONTEND_URL: requireEnv('FRONTEND_URL', 'http://localhost:4300'),
 
   JWT_ACCESS_SECRET: requireEnv('JWT_ACCESS_SECRET'),
   JWT_REFRESH_SECRET: requireEnv('JWT_REFRESH_SECRET'),
@@ -25,12 +25,6 @@ export const env = {
   JWT_REFRESH_EXPIRY: requireEnv('JWT_REFRESH_EXPIRY', '7d'),
 
   DATABASE_PATH: requireEnv('DATABASE_PATH', './data/nova_central.db'),
-
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
-  GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || 'http://127.0.0.1:3000',
-  GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || '',
-  GOOGLE_DRIVE_FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
 
   DEFAULT_SOURCE_PATH: requireEnv('DEFAULT_SOURCE_PATH', '/home/user/backup-source'),
   BACKUP_SCHEDULE: requireEnv('BACKUP_SCHEDULE', '0 */6 * * *'),

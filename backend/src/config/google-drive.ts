@@ -1,27 +1,33 @@
 import { google } from 'googleapis';
-import fs from 'fs';
-import path from 'path';
-import { env } from './env.js';
+import { SettingsModel } from '../models/settings.model.js';
 import { logger } from '../utils/logger.js';
 
-export function createDriveClient() {
-  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, GOOGLE_REFRESH_TOKEN } = env;
+export function createDriveClient(config?: {
+  clientId?: string;
+  clientSecret?: string;
+  redirectUri?: string;
+  refreshToken?: string;
+}) {
+  const clientId = config?.clientId || SettingsModel.get('google_client_id');
+  const clientSecret = config?.clientSecret || SettingsModel.get('google_client_secret');
+  const redirectUri = config?.redirectUri || SettingsModel.get('google_redirect_uri');
+  const refreshToken = config?.refreshToken || SettingsModel.get('google_refresh_token');
 
-  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REFRESH_TOKEN) {
-    logger.warn('Google Drive OAuth 2.0 credentials are incomplete in .env');
+  if (!clientId || !clientSecret || !refreshToken) {
+    logger.warn('Google Drive OAuth 2.0 credentials are incomplete in database settings.');
     logger.warn('Google Drive sync will not be available until configured.');
     return null;
   }
 
   try {
     const auth = new google.auth.OAuth2(
-      GOOGLE_CLIENT_ID,
-      GOOGLE_CLIENT_SECRET,
-      GOOGLE_REDIRECT_URI
+      clientId,
+      clientSecret,
+      redirectUri
     );
 
     auth.setCredentials({
-      refresh_token: GOOGLE_REFRESH_TOKEN,
+      refresh_token: refreshToken,
     });
 
     const drive = google.drive({ version: 'v3', auth });

@@ -35,7 +35,7 @@ async function getAccessToken() {
   console.log(authUrl, '\n');
   console.log('2. Log in with your personal @gmail.com account.');
   console.log('3. Grant the required permissions.');
-  console.log('4. You will be redirected to a page that starts with http://127.0.0.1:3000');
+  console.log('4. You will be redirected to a page that starts with http://127.0.0.1:4300');
   console.log('   - It does not matter if the page loads successfully or shows an error.');
   console.log('   - Look at the URL in your browser address bar.');
   console.log('   - Copy ONLY the value after "code=" and before "&scope=".\n');

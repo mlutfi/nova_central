@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,30 @@ export default function SettingsPage() {
     fetchSettings();
   }, [fetchSettings]);
 
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (code) {
+      const exchangeToken = async () => {
+        setIsSaving(true);
+        const { data, error } = await settingsApi.exchangeDriveCode(code);
+        if (error) {
+          toast.error('Failed to get refresh token', { description: error });
+        } else {
+          toast.success('Refresh token obtained successfully');
+          if (data && data.settings) {
+            setSettings(data.settings);
+          }
+        }
+        setIsSaving(false);
+        // Remove code from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      };
+      exchangeToken();
+    }
+  }, [searchParams]);
+
   const handleSave = async () => {
     setIsSaving(true);
     const { error } = await settingsApi.update(settings);
@@ -60,7 +85,7 @@ export default function SettingsPage() {
   const handleTestDrive = async () => {
     setIsTesting(true);
     setDriveStatus(null);
-    const { data, error } = await settingsApi.testDrive();
+    const { data, error } = await settingsApi.testDrive(settings);
     if (data?.connected) {
       setDriveStatus(true);
       toast.success('Google Drive connected successfully');
@@ -117,15 +142,28 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="source-path" className="text-sm">Source Folder Path</Label>
-            <Input
+            <textarea
               id="source-path"
+              className="w-full h-20 px-3 py-2 text-sm font-mono bg-background border border-input rounded-md outline-none focus:ring-2 focus:ring-ring resize-none placeholder:text-muted-foreground/50"
+              placeholder={'/home/user/backup-source\n/home/user/another-folder'}
               value={settings.source_path ?? ''}
               onChange={(e) => updateSetting('source_path', e.target.value)}
-              placeholder="/home/user/backup-source"
+            />
+            <p className="text-xs text-muted-foreground">
+              Paths to the folders on the server that will be backed up to Google Drive. Separate multiple paths with newlines.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="file-manager-path" className="text-sm">File Manager Root Path</Label>
+            <Input
+              id="file-manager-path"
+              value={settings.file_manager_path ?? ''}
+              onChange={(e) => updateSetting('file_manager_path', e.target.value)}
+              placeholder="/home/user/file-manager"
               className="font-mono text-sm"
             />
             <p className="text-xs text-muted-foreground">
-              Path to the folder on the server that will be backed up to Google Drive.
+              Path to the root folder accessible via the File Manager.
             </p>
           </div>
         </CardContent>
@@ -145,6 +183,64 @@ export default function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="google-client-id" className="text-sm">Client ID</Label>
+            <Input
+              id="google-client-id"
+              value={settings.google_client_id ?? ''}
+              onChange={(e) => updateSetting('google_client_id', e.target.value)}
+              placeholder="Google Client ID"
+              className="font-mono text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="google-client-secret" className="text-sm">Client Secret</Label>
+            <Input
+              id="google-client-secret"
+              type="password"
+              value={settings.google_client_secret ?? ''}
+              onChange={(e) => updateSetting('google_client_secret', e.target.value)}
+              placeholder="Google Client Secret"
+              className="font-mono text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="google-redirect-uri" className="text-sm">Redirect URI</Label>
+            <Input
+              id="google-redirect-uri"
+              value={settings.google_redirect_uri ?? ''}
+              onChange={(e) => updateSetting('google_redirect_uri', e.target.value)}
+              placeholder="http://localhost:4300/dashboard/settings"
+              className="font-mono text-sm"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="google-refresh-token" className="text-sm">Refresh Token</Label>
+            <div className="flex gap-2">
+              <Input
+                id="google-refresh-token"
+                type="password"
+                value={settings.google_refresh_token ?? ''}
+                onChange={(e) => updateSetting('google_refresh_token', e.target.value)}
+                placeholder="Google Refresh Token"
+                className="font-mono text-sm flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  const { data, error } = await settingsApi.getDriveAuthUrl();
+                  if (data?.authUrl) {
+                    window.location.href = data.authUrl;
+                  } else {
+                    toast.error('Failed to get Auth URL', { description: error });
+                  }
+                }}
+              >
+                Sign in with Google
+              </Button>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="drive-folder-id" className="text-sm">Target Folder ID</Label>
             <Input

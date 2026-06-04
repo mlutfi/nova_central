@@ -13,6 +13,9 @@ export class GDriveService {
   }
 
   isInitialized(): boolean {
+    if (!this.drive) {
+      this.initialize();
+    }
     return this.drive !== null;
   }
 
@@ -26,7 +29,7 @@ export class GDriveService {
     onProgress?: (bytesRead: number) => void,
     _retryCount = 0
   ): Promise<{ id: string; name: string } | null> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
     const MAX_RETRIES = 3;
 
     try {
@@ -83,7 +86,7 @@ export class GDriveService {
     onProgress?: (bytesRead: number) => void,
     _retryCount = 0
   ): Promise<{ id: string; name: string } | null> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
     const MAX_RETRIES = 3;
 
     try {
@@ -133,7 +136,7 @@ export class GDriveService {
    * Create a folder on Google Drive.
    */
   async createFolder(name: string, parentId: string): Promise<string> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
 
     // Check if folder already exists
     const existing = await this.findFolder(name, parentId);
@@ -158,7 +161,7 @@ export class GDriveService {
    * Find a folder by name within a parent.
    */
   async findFolder(name: string, parentId: string): Promise<string | null> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
 
     const response = await this.drive.files.list({
       q: `name = '${name.replace(/'/g, "\\'")}' and '${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
@@ -173,7 +176,7 @@ export class GDriveService {
    * Delete a file from Google Drive.
    */
   async deleteFile(driveFileId: string): Promise<void> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
 
     try {
       await this.drive.files.delete({ fileId: driveFileId });
@@ -198,7 +201,7 @@ export class GDriveService {
     modifiedTime: string;
     isFolder: boolean;
   }>> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
 
     const parentId = folderId || 'root';
     const response = await this.drive.files.list({
@@ -222,7 +225,7 @@ export class GDriveService {
    * Rename a file on Google Drive.
    */
   async renameFile(fileId: string, newName: string): Promise<void> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
 
     await this.drive.files.update({
       fileId,
@@ -236,7 +239,7 @@ export class GDriveService {
    * Download a file from Google Drive to a local path.
    */
   async downloadFile(fileId: string, destPath: string, onProgress?: (bytesDownloaded: number) => void): Promise<void> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
 
     const response = await this.drive.files.get(
       { fileId, alt: 'media' },
@@ -273,7 +276,7 @@ export class GDriveService {
     modifiedTime: string;
     parents: string[];
   } | null> {
-    if (!this.drive) throw new Error('Drive client not initialized');
+    if (!this.isInitialized()) throw new Error('Drive client not initialized');
 
     try {
       const response = await this.drive.files.get({
@@ -299,7 +302,7 @@ export class GDriveService {
    * Test connection to Google Drive.
    */
   async testConnection(): Promise<boolean> {
-    if (!this.drive) return false;
+    if (!this.isInitialized()) return false;
 
     try {
       await this.drive.files.list({ pageSize: 1, fields: 'files(id)' });

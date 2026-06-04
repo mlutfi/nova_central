@@ -13,6 +13,10 @@ export function setGDriveService(service: GDriveService): void {
   gdriveService = service;
 }
 
+export function getGDriveService(): GDriveService | null {
+  return gdriveService;
+}
+
 // ─── Transfer Progress Tracking ───
 export interface TransferProgress {
   id: string;
@@ -36,9 +40,9 @@ function resolveSafePath(requestedPath: string, allowedRoots?: string[]): string
   try {
     const resolved = path.resolve(requestedPath);
 
-    // If no allowed roots provided, use configured source path as boundary
+    // If no allowed roots provided, use configured file_manager_path as boundary
     const roots = allowedRoots ?? (() => {
-      const src = SettingsModel.get('source_path');
+      const src = SettingsModel.get('file_manager_path');
       return src ? [path.resolve(src)] : [];
     })();
 

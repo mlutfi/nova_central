@@ -45,7 +45,9 @@ export function createRouter(): Router {
     settingsController.settingsValidation,
     settingsController.updateSettings
   );
-  router.get('/settings/drive/test', authMiddleware, settingsController.testDriveConnection);
+  router.post('/settings/drive/test', authMiddleware, settingsController.testDriveConnection);
+  router.get('/settings/drive/auth-url', authMiddleware, settingsController.getDriveAuthUrl);
+  router.post('/settings/drive/exchange-code', authMiddleware, settingsController.exchangeDriveCode);
 
   // ─── File Manager Routes (protected) ───
   // Local filesystem

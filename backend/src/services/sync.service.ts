@@ -61,17 +61,30 @@ export class SyncService extends EventEmitter {
     }
 
     try {
-      // Normalize path for cross-platform
-      const normalizedSource = path.resolve(sourcePath);
+      const rawPaths = sourcePath.split('\n').map(p => p.trim()).filter(Boolean);
+      const validPaths: string[] = [];
 
-      if (!fs.existsSync(normalizedSource)) {
-        BackupModel.fail(jobId, `Source path does not exist: ${normalizedSource}`);
+      for (const p of rawPaths) {
+        const normalized = path.resolve(p);
+        if (fs.existsSync(normalized)) {
+          validPaths.push(normalized);
+        } else {
+          logger.warn(`Source path does not exist and will be skipped: ${normalized}`);
+        }
+      }
+
+      if (validPaths.length === 0) {
+        BackupModel.fail(jobId, `No valid source paths found`);
         this.isRunning = false;
         return;
       }
 
       // Scan all files recursively
-      const files = this.scanDirectory(normalizedSource);
+      const files: { filePath: string, sourceRoot: string }[] = [];
+      for (const p of validPaths) {
+        const scanned = this.scanDirectory(p);
+        files.push(...scanned.map(filePath => ({ filePath, sourceRoot: p })));
+      }
       const total = files.length;
 
       BackupModel.updateProgress(jobId, 0, 0, 0, total);
@@ -85,7 +98,7 @@ export class SyncService extends EventEmitter {
       const folderMap = new Map<string, string>();
       folderMap.set('', driveFolderId);
 
-      for (const filePath of files) {
+      for (const { filePath, sourceRoot } of files) {
         if (this.isCancelled) {
           BackupModel.cancel(jobId);
           logger.info('Sync cancelled by user');
@@ -94,7 +107,9 @@ export class SyncService extends EventEmitter {
         }
 
         try {
-          const relativePath = path.relative(normalizedSource, filePath);
+          const relativeToRoot = path.relative(sourceRoot, filePath);
+          const rootBaseName = path.basename(sourceRoot);
+          const relativePath = validPaths.length > 1 ? path.join(rootBaseName, relativeToRoot) : relativeToRoot;
           const relativeDir = path.dirname(relativePath);
 
           // Ensure folder structure exists on Drive
@@ -198,8 +213,25 @@ export class SyncService extends EventEmitter {
     }
 
     try {
-      const normalizedSource = path.resolve(sourcePath);
-      const relativePath = path.relative(normalizedSource, filePath);
+      const rawPaths = sourcePath.split('\n').map(p => p.trim()).filter(Boolean);
+      const validPaths = rawPaths.map(p => path.resolve(p)).filter(p => fs.existsSync(p));
+      
+      let sourceRoot = '';
+      for (const p of validPaths) {
+        if (filePath.startsWith(p)) {
+          sourceRoot = p;
+          break;
+        }
+      }
+
+      if (!sourceRoot) {
+        logger.error(`Watcher sync failed: file ${filePath} does not belong to any valid source path`);
+        return;
+      }
+
+      const relativeToRoot = path.relative(sourceRoot, filePath);
+      const rootBaseName = path.basename(sourceRoot);
+      const relativePath = validPaths.length > 1 ? path.join(rootBaseName, relativeToRoot) : relativeToRoot;
       const relativeDir = path.dirname(relativePath);
 
       // Build folder on Drive

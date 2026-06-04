@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4400/api';
 
 interface ApiOptions {
   method?: string;
@@ -147,8 +147,14 @@ export const settingsApi = {
   update: (settings: Record<string, string>) =>
     request('/settings', { method: 'PUT', body: settings }),
 
-  testDrive: () =>
-    request('/settings/drive/test'),
+  testDrive: (settings: Record<string, string>) =>
+    request('/settings/drive/test', { method: 'POST', body: settings }),
+
+  getDriveAuthUrl: () =>
+    request('/settings/drive/auth-url'),
+
+  exchangeDriveCode: (code: string) =>
+    request('/settings/drive/exchange-code', { method: 'POST', body: { code } }),
 };
 
 // ─── File Manager API ───

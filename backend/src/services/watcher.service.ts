@@ -26,10 +26,17 @@ export class WatcherService {
       return;
     }
 
-    const normalizedPath = path.resolve(sourcePath);
-    logger.info(`File watcher starting on: ${normalizedPath}`);
+    const rawPaths = sourcePath.split('\n').map(p => p.trim()).filter(Boolean);
+    const validPaths = rawPaths.map(p => path.resolve(p));
 
-    this.watcher = chokidar.watch(normalizedPath, {
+    if (validPaths.length === 0) {
+      logger.warn('File watcher: no valid source paths configured');
+      return;
+    }
+
+    logger.info(`File watcher starting on: ${validPaths.join(', ')}`);
+
+    this.watcher = chokidar.watch(validPaths, {
       persistent: true,
       ignoreInitial: true,
       awaitWriteFinish: {
