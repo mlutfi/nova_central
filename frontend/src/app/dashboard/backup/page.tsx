@@ -118,10 +118,10 @@ export default function BackupPage() {
       : 0
     : 0;
 
-  const sourcePathDisplay = settings?.source_path 
-    ? settings.source_path.split('\n').filter(Boolean).length > 1 
+  const sourcePathDisplay = settings?.source_path
+    ? settings.source_path.split('\n').filter(Boolean).length > 1
       ? `${settings.source_path.split('\n').filter(Boolean).length} folders configured`
-      : settings.source_path 
+      : settings.source_path
     : 'Not configured';
 
   return (
