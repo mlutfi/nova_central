@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { FileBrowser, type FileItem } from '@/components/file-manager/file-browser';
 import { UploadProgress, type TransferItem } from '@/components/file-manager/upload-progress';
-import { fileManagerApi, tasksApi } from '@/lib/api';
+import { fileManagerApi, tasksApi, settingsApi } from '@/lib/api';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -26,10 +26,8 @@ interface BreadcrumbItem {
 export default function FileManagerPage() {
   // ─── Local State ───
   const [localFiles, setLocalFiles] = useState<FileItem[]>([]);
-  const [localPath, setLocalPath] = useState('C:\\');
-  const [localBreadcrumbs, setLocalBreadcrumbs] = useState<BreadcrumbItem[]>([
-    { label: 'C:', id: 'C:\\' },
-  ]);
+  const [localPath, setLocalPath] = useState('');
+  const [localBreadcrumbs, setLocalBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [localViewMode, setLocalViewMode] = useState<'grid' | 'list'>('list');
@@ -103,7 +101,16 @@ export default function FileManagerPage() {
 
   // ─── Initial Load ───
   useEffect(() => {
-    fetchLocalFiles(localPath);
+    async function initLocal() {
+      try {
+        const { data } = await settingsApi.get();
+        const rootPath = data?.file_manager_path || 'C:\\';
+        navigateLocal(rootPath);
+      } catch (err) {
+        navigateLocal('C:\\');
+      }
+    }
+    initLocal();
     fetchDriveFiles();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -210,17 +217,22 @@ export default function FileManagerPage() {
   // ─── Local Navigation ───
   const navigateLocal = useCallback(
     (dirPath: string) => {
+      if (!dirPath) return;
+      const isUnixAbsolute = dirPath.startsWith('/');
       const parts = dirPath.replace(/\\/g, '/').split('/').filter(Boolean);
       const breadcrumbs: BreadcrumbItem[] = [];
-      let accumulated = '';
 
       for (let i = 0; i < parts.length; i++) {
-        accumulated += parts[i] + (i === 0 ? '\\' : '');
-        if (i > 0) accumulated = accumulated.replace(/\/$/, '') + '\\' + parts[i];
+        let pathSoFar = parts.slice(0, i + 1).join(isUnixAbsolute ? '/' : '\\');
+        
+        if (isUnixAbsolute) {
+          pathSoFar = '/' + pathSoFar;
+        }
 
-        // Build path properly for Windows
-        const pathSoFar = parts.slice(0, i + 1).join('\\');
-        const fullPath = pathSoFar.includes(':') ? pathSoFar + '\\' : pathSoFar;
+        const fullPath = (!isUnixAbsolute && pathSoFar.includes(':')) 
+            ? (pathSoFar.endsWith('\\') ? pathSoFar : pathSoFar + '\\') 
+            : pathSoFar;
+            
         breadcrumbs.push({
           label: parts[i],
           id: fullPath,
@@ -229,7 +241,11 @@ export default function FileManagerPage() {
 
       // Ensure at least root
       if (breadcrumbs.length === 0) {
-        breadcrumbs.push({ label: 'C:', id: 'C:\\' });
+        if (isUnixAbsolute) {
+          breadcrumbs.push({ label: '/', id: '/' });
+        } else {
+          breadcrumbs.push({ label: 'C:', id: 'C:\\' });
+        }
       }
 
       setLocalBreadcrumbs(breadcrumbs);

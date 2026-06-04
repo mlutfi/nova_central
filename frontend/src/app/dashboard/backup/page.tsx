@@ -86,7 +86,7 @@ export default function BackupPage() {
   };
 
   const toggleAutoBackup = async () => {
-    const current = settings?.auto_backup_enabled === 'true';
+    const current = status?.autoBackupEnabled ?? (settings?.auto_backup_enabled === 'true');
     const { error } = await settingsApi.update({
       auto_backup_enabled: current ? 'false' : 'true',
     });
@@ -94,11 +94,12 @@ export default function BackupPage() {
       toast.error('Failed to update setting');
     } else {
       toast.success(current ? 'Auto backup disabled' : 'Auto backup enabled');
+      refreshStatus();
     }
   };
 
   const toggleFileWatcher = async () => {
-    const current = settings?.file_watcher_enabled === 'true';
+    const current = status?.fileWatcherEnabled ?? (settings?.file_watcher_enabled === 'true');
     const { error } = await settingsApi.update({
       file_watcher_enabled: current ? 'false' : 'true',
     });
@@ -106,6 +107,7 @@ export default function BackupPage() {
       toast.error('Failed to update setting');
     } else {
       toast.success(current ? 'File watcher disabled' : 'File watcher enabled');
+      refreshStatus();
     }
   };
 
