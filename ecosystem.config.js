@@ -3,8 +3,7 @@ module.exports = {
     {
       name: 'nova-central-backend',
       cwd: './backend',
-      script: 'npm',
-      args: 'run start',
+      script: 'dist/index.js',
       env: {
         NODE_ENV: 'production',
       },
@@ -12,8 +11,8 @@ module.exports = {
     {
       name: 'nova-central-frontend',
       cwd: './frontend',
-      script: 'npm',
-      args: 'run start',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start -p 4300',
       env: {
         NODE_ENV: 'production',
       },

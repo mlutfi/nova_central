@@ -23,8 +23,9 @@ export function setupSecurity(app: Express): void {
   }));
 
   // CORS — restrict to frontend origin
+  const allowedOrigins = env.FRONTEND_URL.split(',').map(url => url.trim());
   app.use(cors({
-    origin: env.FRONTEND_URL,
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
