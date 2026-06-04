@@ -104,7 +104,7 @@ export default function FileManagerPage() {
     async function initLocal() {
       try {
         const { data } = await settingsApi.get();
-        const rootPath = data?.file_manager_path || 'C:\\';
+        const rootPath = data?.settings?.file_manager_path || 'C:\\';
         navigateLocal(rootPath);
       } catch (err) {
         navigateLocal('C:\\');
