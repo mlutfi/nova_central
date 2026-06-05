@@ -5,7 +5,11 @@ Syncing and backing up server data (Ubuntu/Windows) to Google Drive.
 
 - 🔄 **Auto Backup** — Scheduled synchronization using standard cron expressions.
 - 👁 **File Watcher** — Real-time monitoring and auto-sync for instant changes.
-- 🖱 **Manual Backup & File Manager** — One-click backups, file browsing, cross-transfers, and progress tracking.
+- 🖱 **Manual Backup & File Manager** — Browse local server files, trigger uploads to Google Drive, and download items back to local folders.
+  - **Persistent Background Tasks:** Uploads and downloads run as background tasks that persist and execute even if the browser is closed or refreshed.
+  - **Fault-Tolerant & Resumable:** Failed transfers can be resumed from where they were interrupted. Checkpoint tracking avoids repeating already-completed file transfers. Single-file errors do not abort the entire transfer; instead, other files continue processing, and the task finishes with a `Completed with Errors` status.
+  - **Real-Time Log Streaming:** Uses Server-Sent Events (SSE) with fallback polling and auto-reconnection to stream verbose, live transfer logs.
+  - **Modern UI Panel:** Includes a minimizable floating panel, running elapsed timer, detailed timestamps, auto-scroll control, and an expandable failed-files panel showing precise error details.
 - 🛡️ **Enterprise Security**
   - **Audit Logs:** Global tracking of sensitive user actions (logins, setting changes, backup toggles) with IP logging.
   - **Forced Password Rotation:** Enforced password change upon first administrative login.

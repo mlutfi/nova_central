@@ -183,10 +183,10 @@ export function useTransferPolling(initialTransfers: TransferItem[] = []) {
         return updated;
       }
 
-      // New task — only add if recent (<1 hour) or active
+      // New task — only add if recent (<12 hours) or active
       const taskDate = new Date(task.updated_at + (task.updated_at.endsWith('Z') ? '' : 'Z')).getTime();
       if (
-        Date.now() - taskDate < 3_600_000 ||
+        Date.now() - taskDate < 43_200_000 ||
         task.status === 'PENDING' ||
         task.status === 'IN_PROGRESS'
       ) {
@@ -223,7 +223,7 @@ export function useTransferPolling(initialTransfers: TransferItem[] = []) {
         } else {
           const taskDate = new Date(task.updated_at + (task.updated_at.endsWith('Z') ? '' : 'Z')).getTime();
           if (
-            Date.now() - taskDate < 3_600_000 ||
+            Date.now() - taskDate < 43_200_000 ||
             task.status === 'PENDING' ||
             task.status === 'IN_PROGRESS'
           ) {
