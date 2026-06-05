@@ -30,11 +30,11 @@ export type FileItem =
 // ─── Transfer / Task Types ────────────────────────────────────────────────────
 
 export interface VerboseLogEntry {
-  type: 'scan' | 'info' | 'folder' | 'upload' | 'done' | 'error' | 'skip';
+  type: 'scan' | 'info' | 'folder' | 'upload' | 'download' | 'done' | 'error' | 'skip' | 'resume';
   message: string;
   file?: string;
   size?: number;
-  status?: 'uploading' | 'done' | 'error' | 'skipped';
+  status?: 'uploading' | 'downloading' | 'done' | 'error' | 'skipped' | 'resumed';
   ts: string;
 }
 
@@ -42,7 +42,7 @@ export interface TransferItem {
   id: string;
   fileName: string;
   type: 'upload' | 'download';
-  status: 'pending' | 'in-progress' | 'completed' | 'error';
+  status: 'pending' | 'in-progress' | 'completed' | 'completed-with-errors' | 'error';
   error?: string;
   bytesTransferred?: number;
   totalBytes?: number;
@@ -54,6 +54,9 @@ export interface TransferItem {
   uploadedSize?: number;
   currentFile?: string;
   verboseLog?: VerboseLogEntry[];
+  // Resumability fields
+  failedFiles?: Array<{path: string; error: string}>;
+  canResume?: boolean;
 }
 
 // ─── Backup / Dashboard Types ─────────────────────────────────────────────────

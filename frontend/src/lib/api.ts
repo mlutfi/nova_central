@@ -26,6 +26,7 @@ async function request<T = any>(
         ...headers,
       },
       credentials: 'include', // Send cookies
+      cache: 'no-store',
     };
 
     if (body) {
@@ -195,11 +196,8 @@ export const fileManagerApi = {
   uploadToDrive: (localPath: string, driveFolderId: string, transferId?: string, overwrite?: boolean, existingDriveFileId?: string, overwriteMap?: Record<string, string>, skipPaths?: string[]) =>
     request('/files/upload-to-drive', { method: 'POST', body: { localPath, driveFolderId, transferId, overwrite, existingDriveFileId, overwriteMap, skipPaths } }),
 
-  downloadFromDrive: (fileId: string, localPath: string, fileName?: string, transferId?: string) =>
-    request('/files/download-from-drive', { method: 'POST', body: { fileId, localPath, fileName, transferId } }),
-
-  getTransferProgress: (transferId: string) =>
-    request(`/files/transfers/${transferId}`),
+  downloadFromDrive: (fileId: string, localPath: string, fileName?: string) =>
+    request('/files/download-from-drive', { method: 'POST', body: { fileId, localPath, fileName } }),
 };
 
 // ─── Tasks API ───
@@ -209,6 +207,9 @@ export const tasksApi = {
 
   getTask: (taskId: string) =>
     request(`/tasks/${taskId}`),
+
+  resumeTask: (taskId: string) =>
+    request(`/tasks/${taskId}/resume`, { method: 'POST' }),
 };
 
 // ─── Audit Log API ───

@@ -17,24 +17,6 @@ export function getGDriveService(): GDriveService | null {
   return gdriveService;
 }
 
-// ─── Transfer Progress Tracking ───
-export interface TransferProgress {
-  id: string;
-  bytesTransferred: number;
-  totalBytes: number;
-}
-export const activeTransfers = new Map<string, TransferProgress>();
-
-export function getTransferProgress(req: AuthRequest, res: Response): void {
-  const transferId = req.params.id as string;
-  const progress = activeTransfers.get(transferId);
-  if (progress) {
-    res.json(progress);
-  } else {
-    res.json({ bytesTransferred: 0, totalBytes: 0 }); // Not found or already completed
-  }
-}
-
 // ─── Helper: resolve & validate path — MUST stay within allowed roots ───
 function resolveSafePath(requestedPath: string, allowedRoots?: string[]): string | null {
   try {
@@ -498,7 +480,7 @@ export async function compareWithDrive(req: AuthRequest, res: Response): Promise
   }
 }
 
-// ─── CROSS: Upload local file to Google Drive ───
+// ─── CROSS: Upload local file to Google Drive (background task) ───
 export async function uploadToDrive(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!gdriveService || !gdriveService.isInitialized()) {
@@ -506,7 +488,7 @@ export async function uploadToDrive(req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { localPath, driveFolderId, transferId, overwrite, existingDriveFileId, overwriteMap, skipPaths } = req.body;
+    const { localPath, driveFolderId, overwrite, existingDriveFileId, overwriteMap, skipPaths } = req.body;
     if (!localPath || !driveFolderId) {
       res.status(400).json({ error: 'localPath and driveFolderId are required' });
       return;
@@ -534,7 +516,7 @@ export async function uploadToDrive(req: AuthRequest, res: Response): Promise<vo
     const taskId = taskService.createTask('UPLOAD', taskPayload);
     logger.info(`Enqueued upload task: ${taskId} for ${resolved}${overwrite ? ' (overwrite)' : ''}`);
     
-    // We return taskId so the frontend can poll /api/tasks/:id
+    // We return taskId so the frontend can track via SSE
     res.json({ message: 'Upload started in background', taskId, transferId: taskId });
 
   } catch (error: any) {
@@ -543,7 +525,7 @@ export async function uploadToDrive(req: AuthRequest, res: Response): Promise<vo
   }
 }
 
-// ─── CROSS: Download from Google Drive to local ───
+// ─── CROSS: Download from Google Drive to local (background task) ───
 export async function downloadFromDrive(req: AuthRequest, res: Response): Promise<void> {
   try {
     if (!gdriveService || !gdriveService.isInitialized()) {
@@ -551,7 +533,7 @@ export async function downloadFromDrive(req: AuthRequest, res: Response): Promis
       return;
     }
 
-    const { fileId, localPath, fileName, transferId } = req.body;
+    const { fileId, localPath, fileName } = req.body;
     if (!fileId || !localPath) {
       res.status(400).json({ error: 'fileId and localPath are required' });
       return;
@@ -563,42 +545,15 @@ export async function downloadFromDrive(req: AuthRequest, res: Response): Promis
       return;
     }
 
-    // Ensure target directory exists
-    if (!fs.existsSync(resolved)) {
-      fs.mkdirSync(resolved, { recursive: true });
-    }
+    // Enqueue as background task — survives browser close
+    const taskPayload = { fileId, localPath: resolved, fileName: fileName || 'downloaded-file' };
+    const taskId = taskService.createTask('DOWNLOAD', taskPayload);
+    logger.info(`Enqueued download task: ${taskId} for ${fileId} -> ${resolved}`);
 
-    const destPath = path.join(resolved, fileName || 'downloaded-file');
+    res.json({ message: 'Download started in background', taskId, transferId: taskId });
 
-    if (transferId) {
-      let totalBytes = 0;
-      try {
-        const meta = await gdriveService.getFileMetadata(fileId);
-        if (meta) totalBytes = parseInt(meta.size, 10) || 0;
-      } catch (e) {
-        // ignore
-      }
-      activeTransfers.set(transferId, { id: transferId, bytesTransferred: 0, totalBytes });
-    }
-
-    try {
-      await gdriveService.downloadFile(fileId, destPath, (bytesDownloaded) => {
-        if (transferId) {
-          const transfer = activeTransfers.get(transferId);
-          if (transfer) {
-            transfer.bytesTransferred = bytesDownloaded;
-          }
-        }
-      });
-      if (transferId) activeTransfers.delete(transferId);
-      logger.info(`Downloaded from Drive: ${fileId} -> ${destPath}`);
-      res.json({ message: 'File downloaded', path: destPath });
-    } catch (err) {
-      if (transferId) activeTransfers.delete(transferId);
-      throw err;
-    }
   } catch (error: any) {
     logger.error('Download from drive error:', error);
-    res.status(500).json({ error: error.message || 'Failed to download from Drive' });
+    res.status(500).json({ error: error.message || 'Failed to start download' });
   }
 }

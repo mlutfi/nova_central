@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { fileManagerApi, settingsApi } from '@/lib/api';
+import { fileManagerApi, settingsApi, tasksApi } from '@/lib/api';
 import { toast } from 'sonner';
 import type { FileItem, BreadcrumbItem, TransferItem } from '@/types';
 import { useTransferPolling } from './use-transfer-polling';
@@ -349,40 +349,33 @@ export function useFileManager() {
   const confirmDownload = useCallback(async () => {
     if (!downloadTarget || downloadTarget.source !== 'drive') return;
 
-    const transferId =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : Math.random().toString(36).substring(2);
-
-    const transfer: TransferItem = {
-      id: transferId,
-      fileName: downloadTarget.name,
-      type: 'download',
-      status: 'in-progress',
-    };
-
-    addTransfer(transfer);
     setDownloadTarget(null);
 
     try {
-      const { error } = await fileManagerApi.downloadFromDrive(
+      const { error, data } = await fileManagerApi.downloadFromDrive(
         downloadTarget.id,
         downloadPath,
-        downloadTarget.name,
-        transferId
+        downloadTarget.name
       );
       if (error) {
-        updateTransfer(transferId, { status: 'error', error });
-        toast.error(`Failed to download ${downloadTarget.name}`, { description: error });
+        toast.error(`Failed to start download for ${downloadTarget.name}`, { description: error });
       } else {
-        updateTransfer(transferId, { status: 'completed' });
-        toast.success(`Downloaded ${downloadTarget.name}`);
-        fetchLocalFiles(localPath);
+        toast.success(`Download started for ${downloadTarget.name} in background`);
+        if (data?.taskId) {
+          addTransfer({
+            id: data.taskId,
+            fileName: downloadTarget.name,
+            type: 'download',
+            status: 'pending',
+            bytesTransferred: 0,
+            totalBytes: 100,
+          });
+        }
       }
     } catch (err: any) {
-      updateTransfer(transferId, { status: 'error', error: err.message });
+      toast.error(`Error: ${err.message}`);
     }
-  }, [downloadTarget, downloadPath, localPath, fetchLocalFiles, addTransfer, updateTransfer]);
+  }, [downloadTarget, downloadPath, addTransfer]);
 
   // ── Rename ────────────────────────────────────────────────────────────────
 
@@ -476,6 +469,24 @@ export function useFileManager() {
     [driveFolderId, fetchDriveFiles]
   );
 
+  // ── Resume Task ────────────────────────────────────────────────────────
+
+  const handleResumeTask = useCallback(
+    async (taskId: string) => {
+      try {
+        const { error } = await tasksApi.resumeTask(taskId);
+        if (error) {
+          toast.error('Failed to resume task', { description: error });
+        } else {
+          toast.success('Task resumed');
+        }
+      } catch (err: any) {
+        toast.error(`Error: ${err.message}`);
+      }
+    },
+    []
+  );
+
   return {
     // Local state
     localFiles,
@@ -533,5 +544,7 @@ export function useFileManager() {
     downloadPath,
     setDownloadPath,
     confirmDownload,
+    // Resume
+    handleResumeTask,
   };
 }

@@ -52,14 +52,14 @@ export function FileContextMenu({
           {source === 'local' && (
             <ContextMenuItem onClick={onUploadToDrive}>
               <Upload className="w-4 h-4 text-blue-500" />
-              Upload ke Google Drive
+              Upload to Google Drive
             </ContextMenuItem>
           )}
 
           {source === 'drive' && !isDirectory && (
             <ContextMenuItem onClick={onDownloadFromDrive}>
               <Download className="w-4 h-4 text-emerald-500" />
-              Download ke Lokal
+              Download to Local
             </ContextMenuItem>
           )}
 

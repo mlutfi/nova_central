@@ -1,6 +1,5 @@
-# Nova Central — Secure Server Backup Manager
-
-A modern, highly secure web application for syncing and backing up server data (Ubuntu/Windows) to Google Drive.
+# Nova Central — Server Backup Manager
+Syncing and backing up server data (Ubuntu/Windows) to Google Drive.
 
 ## 🌟 Key Features
 

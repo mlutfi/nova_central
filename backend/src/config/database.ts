@@ -263,10 +263,13 @@ function runMigrations(db: Database): void {
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
       payload TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
+      status TEXT NOT NULL CHECK(status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'COMPLETED_WITH_ERRORS')),
       progress INTEGER DEFAULT 0,
       result TEXT,
       error_message TEXT,
+      completed_files TEXT DEFAULT '[]',
+      failed_files TEXT DEFAULT '[]',
+      last_checkpoint TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -306,6 +309,16 @@ function runMigrations(db: Database): void {
     } catch {
       // Column already exists — ignore
     }
+    // Migration: add completed_files, failed_files, last_checkpoint for resumability
+    try {
+      db.exec("ALTER TABLE tasks ADD COLUMN completed_files TEXT DEFAULT '[]';");
+    } catch { /* already exists */ }
+    try {
+      db.exec("ALTER TABLE tasks ADD COLUMN failed_files TEXT DEFAULT '[]';");
+    } catch { /* already exists */ }
+    try {
+      db.exec("ALTER TABLE tasks ADD COLUMN last_checkpoint TEXT;");
+    } catch { /* already exists */ }
   } catch {
     // Indexes may already exist
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileIcon } from './file-icon';
 import { FileContextMenu } from './file-context-menu';
@@ -104,10 +104,19 @@ export function FileBrowser({
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [contextFile, setContextFile] = useState<FileItem | null>(null);
 
-  const filteredFiles = searchQuery
-    ? files.filter((f) => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  // Debounce search input (300ms)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [searchQuery]);
+
+  const filteredFiles = debouncedSearch
+    ? files.filter((f) => f.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
     : files;
 
   const handleDoubleClick = useCallback(

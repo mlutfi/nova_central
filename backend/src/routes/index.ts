@@ -67,11 +67,12 @@ export function createRouter(): Router {
   router.post('/files/compare-with-drive', authMiddleware, fileManagerController.compareWithDrive);
   router.post('/files/upload-to-drive', authMiddleware, fileManagerController.uploadToDrive);
   router.post('/files/download-from-drive', authMiddleware, fileManagerController.downloadFromDrive);
-  router.get('/files/transfers/:id', authMiddleware, fileManagerController.getTransferProgress);
 
   // ─── Task Routes (protected) ───
+  router.get('/tasks/stream', authMiddleware, taskController.streamTasks);  // SSE — must be before :id
   router.get('/tasks', authMiddleware, taskController.getTasks);
   router.get('/tasks/:id', authMiddleware, taskController.getTask);
+  router.post('/tasks/:id/resume', authMiddleware, taskController.resumeTask);
 
   // ─── Audit Log Routes (protected) ───
   router.get('/audit', authMiddleware, auditController.getAuditLogs);

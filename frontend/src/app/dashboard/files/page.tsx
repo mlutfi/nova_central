@@ -75,7 +75,7 @@ export default function FileManagerPage() {
       </div>
 
       {/* Transfer Progress */}
-      <UploadProgress transfers={fm.transfers} onClose={fm.clearTransfers} />
+      <UploadProgress transfers={fm.transfers} onClose={fm.clearTransfers} onResume={fm.handleResumeTask} />
 
       {/* ── Dialogs ── */}
       <DeleteDialog
