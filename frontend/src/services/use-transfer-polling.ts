@@ -130,7 +130,7 @@ export function useTransferPolling(initialTransfers: TransferItem[] = []) {
               }
             } else {
               // Only add recent tasks (< 1 hour old) or active ones
-              const taskDate = new Date(task.updated_at).getTime();
+              const taskDate = new Date(task.updated_at + 'Z').getTime();
               if (
                 Date.now() - taskDate < 3_600_000 ||
                 task.status === 'PENDING' ||

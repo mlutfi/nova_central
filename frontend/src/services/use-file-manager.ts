@@ -217,7 +217,7 @@ export function useFileManager() {
     ) => {
       try {
         const targetFolderId = driveFolderId || '';
-        const { error } = await fileManagerApi.uploadToDrive(
+        const { error, data } = await fileManagerApi.uploadToDrive(
           localFilePath,
           targetFolderId,
           undefined,
@@ -230,12 +230,22 @@ export function useFileManager() {
           toast.error(`Failed to start upload for ${fileName}`, { description: error });
         } else {
           toast.success(`Upload started for ${fileName} in background`);
+          if (data?.taskId) {
+            addTransfer({
+              id: data.taskId,
+              fileName,
+              type: 'upload',
+              status: 'pending',
+              bytesTransferred: 0,
+              totalBytes: 100,
+            });
+          }
         }
       } catch (err: any) {
         toast.error(`Error: ${err.message}`);
       }
     },
-    [driveFolderId]
+    [driveFolderId, addTransfer]
   );
 
   const handleUploadToDrive = useCallback(

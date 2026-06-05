@@ -6,6 +6,16 @@ import { SettingsModel } from '../models/settings.model.js';
 import { createDriveClient } from '../config/google-drive.js';
 import { logger } from '../utils/logger.js';
 import { getGDriveService } from './filemanager.controller.js';
+import { SchedulerService } from '../services/scheduler.service.js';
+import { WatcherService } from '../services/watcher.service.js';
+
+let schedulerService: SchedulerService | null = null;
+let watcherService: WatcherService | null = null;
+
+export function setBackgroundServices(scheduler: SchedulerService, watcher: WatcherService) {
+  schedulerService = scheduler;
+  watcherService = watcher;
+}
 
 export const settingsValidation = [
   body('source_path').optional().isString().trim().isLength({ min: 1 }),
@@ -76,6 +86,25 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
     const gdriveService = getGDriveService();
     if (gdriveService) {
       gdriveService.initialize();
+    }
+
+    // Handle Scheduler and Watcher state changes
+    if (updates.auto_backup_enabled || updates.backup_schedule || updates.source_path) {
+      const autoEnabled = SettingsModel.get('auto_backup_enabled') === 'true';
+      if (autoEnabled) {
+        schedulerService?.restart();
+      } else {
+        schedulerService?.stop();
+      }
+    }
+
+    if (updates.file_watcher_enabled || updates.source_path) {
+      const watcherEnabled = SettingsModel.get('file_watcher_enabled') === 'true';
+      if (watcherEnabled) {
+        watcherService?.restart();
+      } else {
+        watcherService?.stop();
+      }
     }
 
     const settings = SettingsModel.getAll();

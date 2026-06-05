@@ -11,6 +11,7 @@ import { WatcherService } from './services/watcher.service.js';
 import { SchedulerService } from './services/scheduler.service.js';
 import { setSyncService } from './controllers/backup.controller.js';
 import { setGDriveService } from './controllers/filemanager.controller.js';
+import { setBackgroundServices } from './controllers/settings.controller.js';
 import { taskService } from './services/task.service.js';
 import { SettingsModel } from './models/settings.model.js';
 import { UserModel } from './models/user.model.js';
@@ -61,6 +62,7 @@ async function bootstrap(): Promise<void> {
   // Inject sync service into backup controller
   setSyncService(syncService);
   setGDriveService(gdriveService);
+  setBackgroundServices(schedulerService, watcherService);
 
   taskService.setGDriveService(gdriveService);
   // Resume any pending tasks
