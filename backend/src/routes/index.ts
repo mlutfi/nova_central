@@ -64,6 +64,7 @@ export function createRouter(): Router {
   router.post('/files/drive/delete', authMiddleware, fileManagerController.deleteDrive);
 
   // Cross-operations
+  router.post('/files/compare-with-drive', authMiddleware, fileManagerController.compareWithDrive);
   router.post('/files/upload-to-drive', authMiddleware, fileManagerController.uploadToDrive);
   router.post('/files/download-from-drive', authMiddleware, fileManagerController.downloadFromDrive);
   router.get('/files/transfers/:id', authMiddleware, fileManagerController.getTransferProgress);

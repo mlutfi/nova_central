@@ -300,6 +300,12 @@ function runMigrations(db: Database): void {
     } catch {
       // Column already exists — ignore
     }
+    // Migration: add verbose_log column to tasks for detailed transfer progress
+    try {
+      db.exec("ALTER TABLE tasks ADD COLUMN verbose_log TEXT DEFAULT '[]';");
+    } catch {
+      // Column already exists — ignore
+    }
   } catch {
     // Indexes may already exist
   }

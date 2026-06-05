@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -20,6 +21,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/backup': 'Backup Management',
   '/dashboard/logs': 'Backup Logs',
   '/dashboard/settings': 'Settings',
+  '/dashboard/audit': 'Audit Log',
 };
 
 export function Header() {
@@ -36,10 +38,19 @@ export function Header() {
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground tracking-tight">
-          {title}
-        </h2>
+      <div className="overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.h2
+            key={title}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="text-lg font-semibold text-foreground tracking-tight"
+          >
+            {title}
+          </motion.h2>
+        </AnimatePresence>
       </div>
 
       <div className="flex items-center gap-3">
@@ -48,11 +59,13 @@ export function Header() {
             id="user-menu"
             className="flex items-center gap-2.5 hover:bg-secondary px-2 py-1.5 rounded-md transition-colors cursor-pointer outline-none"
           >
-            <Avatar className="w-8 h-8">
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                {user?.username?.[0]?.toUpperCase() || 'A'}
-              </AvatarFallback>
-            </Avatar>
+            <motion.div whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 400 }}>
+              <Avatar className="w-8 h-8">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                  {user?.username?.[0]?.toUpperCase() || 'A'}
+                </AvatarFallback>
+              </Avatar>
+            </motion.div>
             <span className="text-sm font-medium text-foreground hidden sm:inline">
               {user?.username || 'Admin'}
             </span>

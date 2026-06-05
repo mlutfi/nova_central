@@ -5,16 +5,38 @@ import { GDriveService } from './gdrive.service.js';
 import fs from 'fs';
 import path from 'path';
 
+// ─── Types ───
+
 export interface TaskRecord {
   id: string;
-  type: 'UPLOAD' | 'DOWNLOAD'; // Add download if needed later
+  type: 'UPLOAD' | 'DOWNLOAD';
   payload: string; // JSON string
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
-  progress: number; // 0 to 100 percentage or raw bytes depending on usage
+  progress: number; // 0 to 100
   result: string | null;
   error_message: string | null;
+  verbose_log: string; // JSON array of VerboseLogEntry
   created_at: string;
   updated_at: string;
+}
+
+export interface VerboseLogEntry {
+  type: 'scan' | 'info' | 'folder' | 'upload' | 'done' | 'error' | 'skip';
+  message: string;
+  file?: string;    // relative path for file entries
+  size?: number;    // file size in bytes
+  status?: 'uploading' | 'done' | 'error' | 'skipped';
+  ts: string;       // ISO timestamp
+}
+
+interface UploadContext {
+  totalFiles: number;
+  uploadedFiles: number;
+  totalSize: number;
+  uploadedSize: number;
+  basePath: string; // root folder path for calculating relative paths
+  overwriteMap: Record<string, string>; // relativePath -> driveFileId
+  skipPaths: string[]; // relativePaths to skip
 }
 
 export class TaskService {
@@ -32,8 +54,8 @@ export class TaskService {
     const payloadStr = JSON.stringify(payload);
     
     db.prepare(`
-      INSERT INTO tasks (id, type, payload, status, progress) 
-      VALUES (?, ?, ?, 'PENDING', 0)
+      INSERT INTO tasks (id, type, payload, status, progress, verbose_log) 
+      VALUES (?, ?, ?, 'PENDING', 0, '[]')
     `).run(taskId, type, payloadStr);
     
     logger.info(`Task created: ${taskId} (${type})`);
@@ -78,6 +100,92 @@ export class TaskService {
     db.prepare(query).run(...params);
   }
 
+  // ─── Verbose Log Helpers ───
+
+  private appendVerboseLog(taskId: string, entry: Omit<VerboseLogEntry, 'ts'>): void {
+    const db = getDatabase();
+    const fullEntry: VerboseLogEntry = {
+      ...entry,
+      ts: new Date().toISOString(),
+    };
+
+    try {
+      // Read current log, append, and write back
+      const task = db.prepare('SELECT verbose_log FROM tasks WHERE id = ?').get(taskId) as { verbose_log: string } | undefined;
+      let logs: VerboseLogEntry[] = [];
+      if (task?.verbose_log) {
+        try {
+          logs = JSON.parse(task.verbose_log);
+        } catch { logs = []; }
+      }
+      logs.push(fullEntry);
+
+      db.prepare('UPDATE tasks SET verbose_log = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(JSON.stringify(logs), taskId);
+    } catch (err) {
+      logger.error(`Failed to append verbose log for task ${taskId}:`, err);
+    }
+  }
+
+  private updateVerboseLogLast(taskId: string, update: Partial<VerboseLogEntry>): void {
+    const db = getDatabase();
+    try {
+      const task = db.prepare('SELECT verbose_log FROM tasks WHERE id = ?').get(taskId) as { verbose_log: string } | undefined;
+      let logs: VerboseLogEntry[] = [];
+      if (task?.verbose_log) {
+        try { logs = JSON.parse(task.verbose_log); } catch { logs = []; }
+      }
+      if (logs.length > 0) {
+        logs[logs.length - 1] = { ...logs[logs.length - 1], ...update, ts: new Date().toISOString() };
+        db.prepare('UPDATE tasks SET verbose_log = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+          .run(JSON.stringify(logs), taskId);
+      }
+    } catch (err) {
+      logger.error(`Failed to update verbose log for task ${taskId}:`, err);
+    }
+  }
+
+  // ─── File Counting ───
+
+  private countFilesRecursive(dirPath: string): { totalFiles: number; totalSize: number; folders: number } {
+    let totalFiles = 0;
+    let totalSize = 0;
+    let folders = 0;
+
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        const fullPath = path.join(dirPath, entry.name);
+
+        if (entry.isDirectory()) {
+          folders++;
+          const sub = this.countFilesRecursive(fullPath);
+          totalFiles += sub.totalFiles;
+          totalSize += sub.totalSize;
+          folders += sub.folders;
+        } else {
+          totalFiles++;
+          try {
+            const stat = fs.statSync(fullPath);
+            totalSize += stat.size;
+          } catch { /* skip */ }
+        }
+      }
+    } catch { /* skip unreadable dirs */ }
+
+    return { totalFiles, totalSize, folders };
+  }
+
+  private formatSize(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+  }
+
+  // ─── Queue Processing ───
+
   async processQueue() {
     if (this.isProcessing) return;
     this.isProcessing = true;
@@ -102,10 +210,18 @@ export class TaskService {
              throw new Error(`Unknown task type: ${task.type}`);
           }
           this.updateTaskStatus(task.id, 'COMPLETED', 100);
+          this.appendVerboseLog(task.id, {
+            type: 'done',
+            message: 'Transfer completed successfully',
+          });
           logger.info(`Task completed successfully: ${task.id}`);
         } catch (error: any) {
           logger.error(`Task failed: ${task.id}`, error);
           this.updateTaskStatus(task.id, 'FAILED', task.progress, undefined, error.message || 'Unknown error');
+          this.appendVerboseLog(task.id, {
+            type: 'error',
+            message: `Transfer failed: ${error.message || 'Unknown error'}`,
+          });
         }
       }
     } finally {
@@ -126,22 +242,100 @@ export class TaskService {
     const stat = fs.statSync(localPath);
     
     if (stat.isDirectory()) {
-      // Calculate total files for progress tracking? Or just size? 
-      // For simplicity, let's just do file counts or simple progress based on recursion count.
-      // But this function uploadDirectoryRecursive is a bit tricky to track exact progress.
-      // We'll update progress based on files uploaded.
-      const result = await this.uploadDirectoryRecursive(localPath, driveFolderId, task.id);
+      // ─── Pre-scan folder for total counts ───
+      const folderName = path.basename(localPath);
+      this.appendVerboseLog(task.id, {
+        type: 'scan',
+        message: `Scanning folder: ${folderName}`,
+      });
+
+      const counts = this.countFilesRecursive(localPath);
+
+      // Parse skip/overwrite maps from payload
+      const overwriteMap: Record<string, string> = payload.overwriteMap || {};
+      const skipPaths: string[] = payload.skipPaths || [];
+      const skipCount = skipPaths.length;
+      const overwriteCount = Object.keys(overwriteMap).length;
+
+      // Adjust total files: subtract skipped files from total
+      const effectiveTotal = counts.totalFiles - skipCount;
+      
+      let infoMsg = `Found ${counts.totalFiles} file${counts.totalFiles !== 1 ? 's' : ''} in ${counts.folders + 1} folder${counts.folders !== 0 ? 's' : ''} (total: ${this.formatSize(counts.totalSize)})`;
+      if (skipCount > 0) {
+        infoMsg += ` — ${skipCount} identical will be skipped`;
+      }
+      if (overwriteCount > 0) {
+        infoMsg += ` — ${overwriteCount} will be overwritten`;
+      }
+
+      this.appendVerboseLog(task.id, {
+        type: 'info',
+        message: infoMsg,
+      });
+
+      const context: UploadContext = {
+        totalFiles: Math.max(effectiveTotal, 1),
+        uploadedFiles: 0,
+        totalSize: counts.totalSize,
+        uploadedSize: 0,
+        basePath: path.dirname(localPath),
+        overwriteMap,
+        skipPaths,
+      };
+
+      const result = await this.uploadDirectoryRecursive(localPath, driveFolderId, task.id, context);
       this.updateTaskStatus(task.id, 'IN_PROGRESS', 100, result);
     } else {
+      // Single file upload
+      const fileName = path.basename(localPath);
+      const { overwrite, existingDriveFileId } = payload;
+
+      this.appendVerboseLog(task.id, {
+        type: 'upload',
+        message: overwrite
+          ? `Overwriting: ${fileName} (replacing existing file)`
+          : `Uploading: ${fileName}`,
+        file: fileName,
+        size: stat.size,
+        status: 'uploading',
+      });
+
       let lastProgressUpdate = Date.now();
-      const result = await this.gdriveService.uploadFile(localPath, driveFolderId, undefined, (bytesRead) => {
+      const onProgress = (bytesRead: number) => {
         const now = Date.now();
-        if (now - lastProgressUpdate > 1000) { // throttle DB updates to 1s
+        if (now - lastProgressUpdate > 1000) {
           const percent = Math.floor((bytesRead / stat.size) * 100);
           this.updateTaskStatus(task.id, 'IN_PROGRESS', percent);
           lastProgressUpdate = now;
         }
+      };
+
+      let result;
+      if (overwrite && existingDriveFileId) {
+        // Overwrite: update existing file on Drive
+        result = await this.gdriveService.updateFile(existingDriveFileId, localPath, undefined, onProgress);
+        // If updateFile returns null (file not found on Drive), fall back to new upload
+        if (!result) {
+          this.appendVerboseLog(task.id, {
+            type: 'info',
+            message: `Existing file not found on Drive, uploading as new file`,
+          });
+          result = await this.gdriveService.uploadFile(localPath, driveFolderId, undefined, onProgress);
+        }
+      } else {
+        result = await this.gdriveService.uploadFile(localPath, driveFolderId, undefined, onProgress);
+      }
+
+      this.appendVerboseLog(task.id, {
+        type: 'upload',
+        message: overwrite
+          ? `Overwritten: ${fileName}`
+          : `Completed: ${fileName}`,
+        file: fileName,
+        size: stat.size,
+        status: 'done',
       });
+
       this.updateTaskStatus(task.id, 'IN_PROGRESS', 100, result);
     }
   }
@@ -149,28 +343,150 @@ export class TaskService {
   private async uploadDirectoryRecursive(
     dirPath: string,
     parentDriveId: string,
-    taskId: string
+    taskId: string,
+    context: UploadContext
   ): Promise<Array<{ name: string; id: string }>> {
     if (!this.gdriveService) throw new Error('Drive not initialized');
 
     const results: Array<{ name: string; id: string }> = [];
     const folderName = path.basename(dirPath);
+    const relativeFolderPath = path.relative(context.basePath, dirPath).replace(/\\/g, '/');
+
+    // Log folder creation
+    this.appendVerboseLog(taskId, {
+      type: 'folder',
+      message: `Creating folder: ${relativeFolderPath}`,
+    });
+
     const folderId = await this.gdriveService.createFolder(folderName, parentDriveId);
 
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
+    
+    // Sort: directories first, then files
+    const sortedEntries = [...entries].sort((a, b) => {
+      if (a.isDirectory() && !b.isDirectory()) return -1;
+      if (!a.isDirectory() && b.isDirectory()) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    for (const entry of sortedEntries) {
       if (entry.name.startsWith('.')) continue;
       const fullPath = path.join(dirPath, entry.name);
 
       if (entry.isDirectory()) {
-        const subResults = await this.uploadDirectoryRecursive(fullPath, folderId, taskId);
+        const subResults = await this.uploadDirectoryRecursive(fullPath, folderId, taskId, context);
         results.push(...subResults);
       } else {
-        const result = await this.gdriveService.uploadFile(fullPath, folderId);
-        if (result) results.push(result);
-        
-        // Very rough progress for directory - just update that it is running
-        this.updateTaskStatus(taskId, 'IN_PROGRESS'); 
+        const relativePath = path.relative(context.basePath, fullPath).replace(/\\/g, '/');
+        let fileSize = 0;
+        try {
+          fileSize = fs.statSync(fullPath).size;
+        } catch { /* skip */ }
+
+        // Check if this file should be skipped (same name + same size)
+        if (context.skipPaths.includes(relativePath)) {
+          this.appendVerboseLog(taskId, {
+            type: 'skip',
+            message: `Skipped (identical): ${relativePath}`,
+            file: relativePath,
+            size: fileSize,
+            status: 'skipped',
+          });
+          continue;
+        }
+
+        // Check if this file should be overwritten
+        const overwriteDriveId = context.overwriteMap[relativePath];
+
+        if (overwriteDriveId) {
+          // Overwrite existing file on Drive
+          this.appendVerboseLog(taskId, {
+            type: 'upload',
+            message: `Overwriting: ${relativePath} (${this.formatSize(fileSize)})`,
+            file: relativePath,
+            size: fileSize,
+            status: 'uploading',
+          });
+
+          try {
+            let result = await this.gdriveService.updateFile(overwriteDriveId, fullPath);
+            // Fallback to new upload if file not found on Drive
+            if (!result) {
+              result = await this.gdriveService.uploadFile(fullPath, folderId);
+            }
+            if (result) results.push(result);
+
+            context.uploadedFiles++;
+            context.uploadedSize += fileSize;
+
+            this.appendVerboseLog(taskId, {
+              type: 'upload',
+              message: `Overwritten: ${relativePath}`,
+              file: relativePath,
+              size: fileSize,
+              status: 'done',
+            });
+
+            const percent = context.totalFiles > 0
+              ? Math.floor((context.uploadedFiles / context.totalFiles) * 100)
+              : 0;
+            this.updateTaskStatus(taskId, 'IN_PROGRESS', Math.min(percent, 99));
+
+          } catch (err: any) {
+            context.uploadedFiles++;
+            this.appendVerboseLog(taskId, {
+              type: 'upload',
+              message: `Failed to overwrite: ${relativePath} — ${err.message || 'Unknown error'}`,
+              file: relativePath,
+              size: fileSize,
+              status: 'error',
+            });
+            logger.error(`Failed to overwrite file ${fullPath}:`, err);
+            throw err;
+          }
+        } else {
+          // New file — normal upload
+          this.appendVerboseLog(taskId, {
+            type: 'upload',
+            message: `Uploading: ${relativePath} (${this.formatSize(fileSize)})`,
+            file: relativePath,
+            size: fileSize,
+            status: 'uploading',
+          });
+
+          try {
+            const result = await this.gdriveService.uploadFile(fullPath, folderId);
+            if (result) results.push(result);
+
+            context.uploadedFiles++;
+            context.uploadedSize += fileSize;
+
+            this.appendVerboseLog(taskId, {
+              type: 'upload',
+              message: `Completed: ${relativePath}`,
+              file: relativePath,
+              size: fileSize,
+              status: 'done',
+            });
+
+            const percent = context.totalFiles > 0
+              ? Math.floor((context.uploadedFiles / context.totalFiles) * 100)
+              : 0;
+            this.updateTaskStatus(taskId, 'IN_PROGRESS', Math.min(percent, 99));
+
+          } catch (err: any) {
+            context.uploadedFiles++;
+            this.appendVerboseLog(taskId, {
+              type: 'upload',
+              message: `Failed: ${relativePath} — ${err.message || 'Unknown error'}`,
+              file: relativePath,
+              size: fileSize,
+              status: 'error',
+            });
+            logger.error(`Failed to upload file ${fullPath}:`, err);
+            throw err;
+          }
+        }
       }
     }
 

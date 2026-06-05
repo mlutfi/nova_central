@@ -189,8 +189,11 @@ export const fileManagerApi = {
     request('/files/drive/delete', { method: 'POST', body: { fileId } }),
 
   // Cross-operations
-  uploadToDrive: (localPath: string, driveFolderId: string, transferId?: string) =>
-    request('/files/upload-to-drive', { method: 'POST', body: { localPath, driveFolderId, transferId } }),
+  compareWithDrive: (localPath: string, driveFolderId: string) =>
+    request('/files/compare-with-drive', { method: 'POST', body: { localPath, driveFolderId } }),
+
+  uploadToDrive: (localPath: string, driveFolderId: string, transferId?: string, overwrite?: boolean, existingDriveFileId?: string, overwriteMap?: Record<string, string>, skipPaths?: string[]) =>
+    request('/files/upload-to-drive', { method: 'POST', body: { localPath, driveFolderId, transferId, overwrite, existingDriveFileId, overwriteMap, skipPaths } }),
 
   downloadFromDrive: (fileId: string, localPath: string, fileName?: string, transferId?: string) =>
     request('/files/download-from-drive', { method: 'POST', body: { fileId, localPath, fileName, transferId } }),

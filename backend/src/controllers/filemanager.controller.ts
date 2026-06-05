@@ -354,6 +354,150 @@ export async function deleteDrive(req: AuthRequest, res: Response): Promise<void
   }
 }
 
+// ─── CROSS: Compare local folder with Drive folder ───
+interface FileConflict {
+  relativePath: string;
+  localSize: number;
+  driveSize: number;
+  driveFileId: string;
+}
+
+interface SkippableFile {
+  relativePath: string;
+  size: number;
+}
+
+async function compareRecursive(
+  service: GDriveService,
+  localDir: string,
+  driveFolderId: string,
+  basePath: string,
+  conflicts: FileConflict[],
+  skippable: SkippableFile[],
+  counters: { newFiles: number; totalFiles: number }
+): Promise<void> {
+  const entries = fs.readdirSync(localDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    const fullPath = path.join(localDir, entry.name);
+    const relativePath = path.relative(basePath, fullPath).replace(/\\/g, '/');
+
+    if (entry.isDirectory()) {
+      // Check if folder exists on Drive
+      const existingFolderId = await service.findFolder(entry.name, driveFolderId);
+      if (existingFolderId) {
+        // Folder exists — recurse into it to compare contents
+        await compareRecursive(service, fullPath, existingFolderId, basePath, conflicts, skippable, counters);
+      } else {
+        // Folder doesn't exist on Drive — all files inside are new
+        const countLocal = (dir: string) => {
+          const subs = fs.readdirSync(dir, { withFileTypes: true });
+          for (const s of subs) {
+            if (s.name.startsWith('.')) continue;
+            const sp = path.join(dir, s.name);
+            if (s.isDirectory()) {
+              countLocal(sp);
+            } else {
+              counters.newFiles++;
+              counters.totalFiles++;
+            }
+          }
+        };
+        countLocal(fullPath);
+      }
+    } else {
+      counters.totalFiles++;
+      let localSize = 0;
+      try { localSize = fs.statSync(fullPath).size; } catch { /* skip */ }
+
+      // Check if file with same name exists in this Drive folder
+      const driveFiles = await service.listFiles(driveFolderId);
+      const existing = driveFiles.find(
+        (f) => f.name === entry.name && !f.isFolder
+      );
+
+      if (existing) {
+        const driveSize = parseInt(existing.size || '0', 10);
+        if (localSize === driveSize) {
+          skippable.push({ relativePath, size: localSize });
+        } else {
+          conflicts.push({
+            relativePath,
+            localSize,
+            driveSize,
+            driveFileId: existing.id,
+          });
+        }
+      } else {
+        counters.newFiles++;
+      }
+    }
+  }
+}
+
+export async function compareWithDrive(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    if (!gdriveService || !gdriveService.isInitialized()) {
+      res.status(503).json({ error: 'Google Drive is not configured' });
+      return;
+    }
+
+    const { localPath: rawPath, driveFolderId } = req.body;
+    if (!rawPath || !driveFolderId) {
+      res.status(400).json({ error: 'localPath and driveFolderId are required' });
+      return;
+    }
+
+    const resolved = resolveSafePath(rawPath);
+    if (!resolved || !fs.existsSync(resolved)) {
+      res.status(404).json({ error: 'Local path not found' });
+      return;
+    }
+
+    const stat = fs.statSync(resolved);
+    if (!stat.isDirectory()) {
+      res.status(400).json({ error: 'Path is not a directory' });
+      return;
+    }
+
+    // Check if the root folder itself exists on Drive
+    const folderName = path.basename(resolved);
+    const existingRootId = await gdriveService.findFolder(folderName, driveFolderId || 'root');
+
+    if (!existingRootId) {
+      // Folder doesn't exist on Drive at all — no conflicts
+      res.json({ conflicts: [], skippable: [], newFiles: -1, totalFiles: 0 });
+      return;
+    }
+
+    const conflicts: FileConflict[] = [];
+    const skippable: SkippableFile[] = [];
+    const counters = { newFiles: 0, totalFiles: 0 };
+
+    await compareRecursive(
+      gdriveService,
+      resolved,
+      existingRootId,
+      path.dirname(resolved), // basePath = parent of root folder, so relativePath includes folder name
+      conflicts,
+      skippable,
+      counters
+    );
+
+    logger.info(`Compare result for ${resolved}: ${conflicts.length} conflicts, ${skippable.length} skippable, ${counters.newFiles} new`);
+    res.json({
+      conflicts,
+      skippable,
+      newFiles: counters.newFiles,
+      totalFiles: counters.totalFiles,
+    });
+  } catch (error: any) {
+    logger.error('Compare with drive error:', error);
+    res.status(500).json({ error: error.message || 'Failed to compare' });
+  }
+}
+
 // ─── CROSS: Upload local file to Google Drive ───
 export async function uploadToDrive(req: AuthRequest, res: Response): Promise<void> {
   try {
@@ -362,7 +506,7 @@ export async function uploadToDrive(req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    const { localPath, driveFolderId, transferId } = req.body; // transferId is optional now, we'll return taskId
+    const { localPath, driveFolderId, transferId, overwrite, existingDriveFileId, overwriteMap, skipPaths } = req.body;
     if (!localPath || !driveFolderId) {
       res.status(400).json({ error: 'localPath and driveFolderId are required' });
       return;
@@ -374,9 +518,21 @@ export async function uploadToDrive(req: AuthRequest, res: Response): Promise<vo
       return;
     }
 
-    // Insert task into queue
-    const taskId = taskService.createTask('UPLOAD', { localPath: resolved, driveFolderId });
-    logger.info(`Enqueued upload task: ${taskId} for ${resolved}`);
+    // Insert task into queue, including overwrite/skip info if present
+    const taskPayload: any = { localPath: resolved, driveFolderId };
+    if (overwrite && existingDriveFileId) {
+      taskPayload.overwrite = true;
+      taskPayload.existingDriveFileId = existingDriveFileId;
+    }
+    if (overwriteMap && Object.keys(overwriteMap).length > 0) {
+      taskPayload.overwriteMap = overwriteMap;
+    }
+    if (skipPaths && skipPaths.length > 0) {
+      taskPayload.skipPaths = skipPaths;
+    }
+
+    const taskId = taskService.createTask('UPLOAD', taskPayload);
+    logger.info(`Enqueued upload task: ${taskId} for ${resolved}${overwrite ? ' (overwrite)' : ''}`);
     
     // We return taskId so the frontend can poll /api/tasks/:id
     res.json({ message: 'Upload started in background', taskId, transferId: taskId });

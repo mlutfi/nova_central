@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FileIcon } from './file-icon';
 import { FileContextMenu } from './file-context-menu';
 import {
@@ -19,6 +20,15 @@ import {
   Search,
 } from 'lucide-react';
 import { formatBytes } from '@/lib/format';
+import {
+  FileBrowserListSkeleton,
+  FileBrowserGridSkeleton,
+} from '@/components/ui/skeleton-loaders';
+import type { FileItem, BreadcrumbItem } from '@/types';
+
+// ─── Re-export types for backward compatibility ───────────────────────────────
+
+export type { FileItem };
 
 export interface LocalFile {
   name: string;
@@ -38,16 +48,14 @@ export interface DriveFile {
   isFolder: boolean;
 }
 
-export type FileItem =
-  | ({ source: 'local' } & LocalFile)
-  | ({ source: 'drive' } & DriveFile);
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface FileBrowserProps {
   title: string;
   source: 'local' | 'drive';
   icon: 'local' | 'drive';
   files: FileItem[];
-  breadcrumbs: Array<{ label: string; id: string }>;
+  breadcrumbs: BreadcrumbItem[];
   isLoading: boolean;
   error?: string | null;
   viewMode: 'grid' | 'list';
@@ -65,6 +73,8 @@ interface FileBrowserProps {
   onRefresh: () => void;
   canGoUp: boolean;
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function FileBrowser({
   title,
@@ -119,14 +129,11 @@ export function FileBrowser({
     [onSelectFile]
   );
 
-  const startRename = useCallback(
-    (file: FileItem) => {
-      const id = file.source === 'local' ? file.path : file.id;
-      setRenaming(id);
-      setRenameValue(file.name);
-    },
-    []
-  );
+  const startRename = useCallback((file: FileItem) => {
+    const id = file.source === 'local' ? file.path : file.id;
+    setRenaming(id);
+    setRenameValue(file.name);
+  }, []);
 
   const confirmRename = useCallback(() => {
     if (!renaming || !renameValue.trim()) {
@@ -187,7 +194,7 @@ export function FileBrowser({
 
   return (
     <div className="flex flex-col h-full rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="shrink-0 px-4 py-3 bg-gradient-to-r from-card to-secondary/20 border-b border-border/40">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -222,13 +229,15 @@ export function FileBrowser({
             >
               <FolderPlus className="w-4 h-4" />
             </button>
-            <button
+            <motion.button
               onClick={onRefresh}
               className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
               title="Refresh"
+              animate={isLoading ? { rotate: 360 } : { rotate: 0 }}
+              transition={isLoading ? { duration: 0.8, ease: 'linear', repeat: Infinity } : { duration: 0.2 }}
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
+              <RefreshCw className="w-4 h-4" />
+            </motion.button>
           </div>
         </div>
 
@@ -272,28 +281,34 @@ export function FileBrowser({
         </div>
       </div>
 
-      {/* File List */}
+      {/* ── File List ── */}
       <div
         className="flex-1 overflow-y-auto"
         onClick={(e) => {
           if (e.target === e.currentTarget) onSelectFile(null);
         }}
       >
+        {/* Error */}
         {error && (
           <div className="p-4 text-center">
             <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
 
+        {/* Skeleton Loading */}
         {isLoading && !error && (
-          <div className="p-8 text-center">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">Loading...</p>
-          </div>
+          viewMode === 'list'
+            ? <FileBrowserListSkeleton rows={8} />
+            : <FileBrowserGridSkeleton items={12} />
         )}
 
+        {/* Empty state */}
         {!isLoading && !error && filteredFiles.length === 0 && (
-          <div className="p-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-8 text-center"
+          >
             <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
               {icon === 'local' ? (
                 <HardDrive className="w-6 h-6 text-muted-foreground/30" />
@@ -304,190 +319,220 @@ export function FileBrowser({
             <p className="text-sm text-muted-foreground">
               {searchQuery ? 'No files match your search' : 'This folder is empty'}
             </p>
-          </div>
+          </motion.div>
         )}
 
         {/* New folder input */}
-        {creatingFolder && (
-          <div className="px-3 py-2 border-b border-border/30">
-            <div className="flex items-center gap-2">
-              <FolderPlus className="w-4 h-4 text-amber-400 shrink-0" />
-              <input
-                type="text"
-                autoFocus
-                placeholder="Folder name..."
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') confirmNewFolder();
-                  if (e.key === 'Escape') {
-                    setCreatingFolder(false);
-                    setNewFolderName('');
-                  }
-                }}
-                onBlur={confirmNewFolder}
-                className="flex-1 h-7 px-2 text-xs bg-background border border-primary/30 rounded-md outline-none focus:border-primary/60 transition-colors"
-              />
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {creatingFolder && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="px-3 py-2 border-b border-border/30 overflow-hidden"
+            >
+              <div className="flex items-center gap-2">
+                <FolderPlus className="w-4 h-4 text-amber-400 shrink-0" />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Folder name..."
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmNewFolder();
+                    if (e.key === 'Escape') {
+                      setCreatingFolder(false);
+                      setNewFolderName('');
+                    }
+                  }}
+                  onBlur={confirmNewFolder}
+                  className="flex-1 h-7 px-2 text-xs bg-background border border-primary/30 rounded-md outline-none focus:border-primary/60 transition-colors"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Files */}
-        {viewMode === 'list' ? (
-          /* ─── List View ─── */
-          <div className="divide-y divide-border/20">
-            {filteredFiles.map((file) => {
-              const id = getFileId(file);
-              const isSelected = selectedFile && getFileId(selectedFile) === id;
-              const isDir = isFileDirectory(file);
+        {!isLoading && !error && (
+          viewMode === 'list' ? (
+            /* ── List View ── */
+            <motion.div
+              className="divide-y divide-border/20"
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.03 } } }}
+            >
+              {filteredFiles.map((file) => {
+                const id = getFileId(file);
+                const isSelected = selectedFile && getFileId(selectedFile) === id;
+                const isDir = isFileDirectory(file);
 
-              return (
-                <ContextMenuProvider key={id}>
-                  <ContextMenuTrigger
-                    onContextMenu={() => handleSelect(file)}
+                return (
+                  <motion.div
+                    key={id}
+                    variants={{
+                      hidden: { opacity: 0, x: -6 },
+                      visible: { opacity: 1, x: 0, transition: { duration: 0.2 } },
+                    }}
                   >
-                    <div
-                      className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-all duration-150 group ${
-                        isSelected
-                          ? 'bg-primary/8 border-l-2 border-l-primary'
-                          : 'hover:bg-accent/30 border-l-2 border-l-transparent'
-                      }`}
-                      onClick={() => handleSelect(file)}
-                      onDoubleClick={() => handleDoubleClick(file)}
-                    >
-                      <FileIcon
-                        name={file.name}
-                        isDirectory={isDir}
-                        extension={file.source === 'local' ? file.extension : undefined}
-                        mimeType={file.source === 'drive' ? file.mimeType : undefined}
-                        size="md"
-                      />
-
-                      <div className="flex-1 min-w-0">
-                        {renaming === id ? (
-                          <input
-                            type="text"
-                            autoFocus
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') confirmRename();
-                              if (e.key === 'Escape') setRenaming(null);
-                            }}
-                            onBlur={confirmRename}
-                            className="w-full h-6 px-1.5 text-xs bg-background border border-primary/40 rounded outline-none"
-                            onClick={(e) => e.stopPropagation()}
+                    <ContextMenuProvider>
+                      <ContextMenuTrigger onContextMenu={() => handleSelect(file)}>
+                        <div
+                          className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-all duration-150 group ${
+                            isSelected
+                              ? 'bg-primary/8 border-l-2 border-l-primary'
+                              : 'hover:bg-accent/30 border-l-2 border-l-transparent'
+                          }`}
+                          onClick={() => handleSelect(file)}
+                          onDoubleClick={() => handleDoubleClick(file)}
+                        >
+                          <FileIcon
+                            name={file.name}
+                            isDirectory={isDir}
+                            extension={file.source === 'local' ? file.extension : undefined}
+                            mimeType={file.source === 'drive' ? file.mimeType : undefined}
+                            size="md"
                           />
-                        ) : (
-                          <p className="text-[13px] font-medium text-foreground truncate">
-                            {file.name}
-                          </p>
-                        )}
-                      </div>
 
-                      <span className="text-[11px] text-muted-foreground/60 w-20 text-right shrink-0">
-                        {getFileSize(file)}
-                      </span>
+                          <div className="flex-1 min-w-0">
+                            {renaming === id ? (
+                              <input
+                                type="text"
+                                autoFocus
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') confirmRename();
+                                  if (e.key === 'Escape') setRenaming(null);
+                                }}
+                                onBlur={confirmRename}
+                                className="w-full h-6 px-1.5 text-xs bg-background border border-primary/40 rounded outline-none"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <p className="text-[13px] font-medium text-foreground truncate">
+                                {file.name}
+                              </p>
+                            )}
+                          </div>
 
-                      <span className="text-[11px] text-muted-foreground/60 w-36 text-right shrink-0 hidden lg:block">
-                        {getModifiedDate(file)}
-                      </span>
-                    </div>
-                  </ContextMenuTrigger>
+                          <span className="text-[11px] text-muted-foreground/60 w-20 text-right shrink-0">
+                            {getFileSize(file)}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground/60 w-36 text-right shrink-0 hidden lg:block">
+                            {getModifiedDate(file)}
+                          </span>
+                        </div>
+                      </ContextMenuTrigger>
 
-                  <FileContextMenu
-                    source={source}
-                    isDirectory={isDir}
-                    hasSelection={true}
-                    onUploadToDrive={() => onUploadToDrive?.(file)}
-                    onDownloadFromDrive={() => onDownloadFromDrive?.(file)}
-                    onRename={() => startRename(file)}
-                    onDelete={() => onDelete(file)}
-                    onNewFolder={() => setCreatingFolder(true)}
-                    onCopyPath={handleCopyPath}
-                    onRefresh={onRefresh}
-                  />
-                </ContextMenuProvider>
-              );
-            })}
-          </div>
-        ) : (
-          /* ─── Grid View ─── */
-          <div className="p-3 grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
-            {filteredFiles.map((file) => {
-              const id = getFileId(file);
-              const isSelected = selectedFile && getFileId(selectedFile) === id;
-              const isDir = isFileDirectory(file);
+                      <FileContextMenu
+                        source={source}
+                        isDirectory={isDir}
+                        hasSelection={true}
+                        onUploadToDrive={() => onUploadToDrive?.(file)}
+                        onDownloadFromDrive={() => onDownloadFromDrive?.(file)}
+                        onRename={() => startRename(file)}
+                        onDelete={() => onDelete(file)}
+                        onNewFolder={() => setCreatingFolder(true)}
+                        onCopyPath={handleCopyPath}
+                        onRefresh={onRefresh}
+                      />
+                    </ContextMenuProvider>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          ) : (
+            /* ── Grid View ── */
+            <motion.div
+              className="p-3 grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2"
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.04 } } }}
+            >
+              {filteredFiles.map((file) => {
+                const id = getFileId(file);
+                const isSelected = selectedFile && getFileId(selectedFile) === id;
+                const isDir = isFileDirectory(file);
 
-              return (
-                <ContextMenuProvider key={id}>
-                  <ContextMenuTrigger
-                    onContextMenu={() => handleSelect(file)}
+                return (
+                  <motion.div
+                    key={id}
+                    variants={{
+                      hidden: { opacity: 0, scale: 0.9 },
+                      visible: { opacity: 1, scale: 1, transition: { duration: 0.2 } },
+                    }}
                   >
-                    <div
-                      className={`flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-all duration-150 group ${
-                        isSelected
-                          ? 'bg-primary/8 ring-1 ring-primary/20'
-                          : 'hover:bg-accent/30'
-                      }`}
-                      onClick={() => handleSelect(file)}
-                      onDoubleClick={() => handleDoubleClick(file)}
-                    >
-                      <div className="w-10 h-10 flex items-center justify-center">
-                        <FileIcon
-                          name={file.name}
-                          isDirectory={isDir}
-                          extension={file.source === 'local' ? file.extension : undefined}
-                          mimeType={file.source === 'drive' ? file.mimeType : undefined}
-                          size="lg"
-                        />
-                      </div>
+                    <ContextMenuProvider>
+                      <ContextMenuTrigger onContextMenu={() => handleSelect(file)}>
+                        <div
+                          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-all duration-150 group ${
+                            isSelected
+                              ? 'bg-primary/8 ring-1 ring-primary/20'
+                              : 'hover:bg-accent/30'
+                          }`}
+                          onClick={() => handleSelect(file)}
+                          onDoubleClick={() => handleDoubleClick(file)}
+                        >
+                          <div className="w-10 h-10 flex items-center justify-center">
+                            <FileIcon
+                              name={file.name}
+                              isDirectory={isDir}
+                              extension={file.source === 'local' ? file.extension : undefined}
+                              mimeType={file.source === 'drive' ? file.mimeType : undefined}
+                              size="lg"
+                            />
+                          </div>
 
-                      {renaming === id ? (
-                        <input
-                          type="text"
-                          autoFocus
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') confirmRename();
-                            if (e.key === 'Escape') setRenaming(null);
-                          }}
-                          onBlur={confirmRename}
-                          className="w-full h-5 px-1 text-[11px] bg-background border border-primary/40 rounded outline-none text-center"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <p className="text-[11px] font-medium text-foreground text-center leading-tight truncate w-full">
-                          {file.name}
-                        </p>
-                      )}
+                          {renaming === id ? (
+                            <input
+                              type="text"
+                              autoFocus
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') confirmRename();
+                                if (e.key === 'Escape') setRenaming(null);
+                              }}
+                              onBlur={confirmRename}
+                              className="w-full h-5 px-1 text-[11px] bg-background border border-primary/40 rounded outline-none text-center"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <p className="text-[11px] font-medium text-foreground text-center leading-tight truncate w-full">
+                              {file.name}
+                            </p>
+                          )}
 
-                      <p className="text-[10px] text-muted-foreground/50">
-                        {getFileSize(file)}
-                      </p>
-                    </div>
-                  </ContextMenuTrigger>
+                          <p className="text-[10px] text-muted-foreground/50">
+                            {getFileSize(file)}
+                          </p>
+                        </div>
+                      </ContextMenuTrigger>
 
-                  <FileContextMenu
-                    source={source}
-                    isDirectory={isDir}
-                    hasSelection={true}
-                    onUploadToDrive={() => onUploadToDrive?.(file)}
-                    onDownloadFromDrive={() => onDownloadFromDrive?.(file)}
-                    onRename={() => startRename(file)}
-                    onDelete={() => onDelete(file)}
-                    onNewFolder={() => setCreatingFolder(true)}
-                    onCopyPath={handleCopyPath}
-                    onRefresh={onRefresh}
-                  />
-                </ContextMenuProvider>
-              );
-            })}
-          </div>
+                      <FileContextMenu
+                        source={source}
+                        isDirectory={isDir}
+                        hasSelection={true}
+                        onUploadToDrive={() => onUploadToDrive?.(file)}
+                        onDownloadFromDrive={() => onDownloadFromDrive?.(file)}
+                        onRename={() => startRename(file)}
+                        onDelete={() => onDelete(file)}
+                        onNewFolder={() => setCreatingFolder(true)}
+                        onCopyPath={handleCopyPath}
+                        onRefresh={onRefresh}
+                      />
+                    </ContextMenuProvider>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )
         )}
 
-        {/* Background context menu (when no file selected) */}
+        {/* Background context menu */}
         {!isLoading && !error && (
           <ContextMenuProvider>
             <ContextMenuTrigger
@@ -507,7 +552,7 @@ export function FileBrowser({
         )}
       </div>
 
-      {/* Status bar */}
+      {/* ── Status bar ── */}
       <div className="shrink-0 px-4 py-2 bg-secondary/20 border-t border-border/30">
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-muted-foreground/60">
@@ -515,9 +560,14 @@ export function FileBrowser({
             {searchQuery && ` (filtered)`}
           </span>
           {selectedFile && (
-            <span className="text-[11px] text-primary font-medium truncate max-w-[200px]">
+            <motion.span
+              key={getFileId(selectedFile)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-[11px] text-primary font-medium truncate max-w-[200px]"
+            >
               {selectedFile.name}
-            </span>
+            </motion.span>
           )}
         </div>
       </div>
