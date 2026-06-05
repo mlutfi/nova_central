@@ -123,10 +123,33 @@ function taskToTransfer(task: any): TransferItem {
  * - Hydrates state from REST on initial mount (handles browser reopen)
  * - Auto-reconnects SSE with exponential backoff
  */
+const DISMISSED_STORAGE_KEY = 'nova_dismissed_task_ids';
+
+function loadDismissedIds(): Set<string> {
+  try {
+    if (typeof window === 'undefined') return new Set();
+    const raw = localStorage.getItem(DISMISSED_STORAGE_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissedIds(ids: Set<string>) {
+  try {
+    if (typeof window === 'undefined') return;
+    // Keep only the last 200 IDs to avoid localStorage bloat
+    const arr = [...ids].slice(-200);
+    localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(arr));
+  } catch { /* ignore quota errors */ }
+}
+
 export function useTransferPolling(initialTransfers: TransferItem[] = []) {
   const [transfers, setTransfers] = useState<TransferItem[]>(initialTransfers);
   const transfersRef = useRef<TransferItem[]>(initialTransfers);
-  const dismissedIdsRef = useRef<Set<string>>(new Set());
+  const dismissedIdsRef = useRef<Set<string>>(loadDismissedIds());
   const sseRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -320,6 +343,7 @@ export function useTransferPolling(initialTransfers: TransferItem[] = []) {
 
   const clearTransfers = useCallback(() => {
     transfersRef.current.forEach((t) => dismissedIdsRef.current.add(t.id));
+    saveDismissedIds(dismissedIdsRef.current);
     setTransfers([]);
   }, []);
 
