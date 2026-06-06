@@ -1,38 +1,87 @@
-# Nova Central — Server Backup Manager
-Syncing and backing up server data (Ubuntu/Windows) to Google Drive.
+# Nova Central — Data Backup Manager
 
-## 🌟 Key Features
+Aplikasi untuk sinkronisasi dan backup data server (Ubuntu/Windows) ke Google Drive secara otomatis maupun manual.
 
-- 🔄 **Auto Backup** — Scheduled synchronization using standard cron expressions.
-- 👁 **File Watcher** — Real-time monitoring and auto-sync for instant changes.
-- 🖱 **Manual Backup & File Manager** — Browse local server files, trigger uploads to Google Drive, and download items back to local folders.
-  - **Persistent Background Tasks:** Uploads and downloads run as background tasks that persist and execute even if the browser is closed or refreshed.
-  - **Fault-Tolerant & Resumable:** Failed transfers can be resumed from where they were interrupted. Checkpoint tracking avoids repeating already-completed file transfers. Single-file errors do not abort the entire transfer; instead, other files continue processing, and the task finishes with a `Completed with Errors` status.
-  - **Real-Time Log Streaming:** Uses Server-Sent Events (SSE) with fallback polling and auto-reconnection to stream verbose, live transfer logs.
-  - **Modern UI Panel:** Includes a minimizable floating panel, running elapsed timer, detailed timestamps, auto-scroll control, and an expandable failed-files panel showing precise error details.
-- 🛡️ **Enterprise Security**
-  - **Audit Logs:** Global tracking of sensitive user actions (logins, setting changes, backup toggles) with IP logging.
-  - **Forced Password Rotation:** Enforced password change upon first administrative login.
-  - **Rate Limiting Resilience:** Exponential backoff mechanisms handling Google Drive API constraints safely.
-- ☁️ **Google Drive API** — Direct native sync with intelligent collision and integrity handling (SHA-256).
-- 📊 **Dashboard & Exclusions** — Real-time stats, logs, and robust File Exclusion Filters (Glob patterns & file sizes).
+## Fitur Utama
 
-## 🛠 Tech Stack
+- **Backup Otomatis** — Penjadwalan sinkronisasi menggunakan cron expression standar.
+- **File Watcher** — Monitoring file secara real-time, langsung sync ketika ada perubahan.
+- **Backup Manual dan File Manager** — Jelajahi file di server lokal, upload ke Google Drive, atau download dari Drive ke folder lokal.
+  - **Background Task yang Persistent:** Upload dan download berjalan di background. Tetap jalan meskipun browser ditutup atau di-refresh.
+  - **Tahan Gangguan dan Bisa Dilanjutkan:** Transfer yang gagal bisa dilanjutkan dari titik terakhir. Tracking checkpoint mencegah file yang sudah selesai diproses ulang. Kalau satu file error, file lain tetap jalan, dan task selesai dengan status `Completed with Errors`.
+  - **Log Streaming Real-Time:** Menggunakan Server-Sent Events (SSE) dengan fallback polling dan auto-reconnect untuk menampilkan log transfer secara live.
+  - **Panel UI Modern:** Panel floating yang bisa di-minimize, timer elapsed, timestamp detail, kontrol auto-scroll, dan panel file gagal yang bisa di-expand dengan detail error.
+- **Keamanan**
+  - **Audit Log:** Tracking global untuk aksi sensitif (login, perubahan setting, toggle backup) lengkap dengan pencatatan IP.
+  - **Wajib Ganti Password:** Sistem memaksa ganti password saat login pertama kali.
+  - **Rate Limiting:** Mekanisme exponential backoff untuk menangani batasan Google Drive API.
+- **Google Drive API** — Sinkronisasi langsung ke Google Drive dengan penanganan collision dan verifikasi integritas file (SHA-256).
+- **Dashboard dan Exclusion Filter** — Statistik real-time, log, dan filter exclusion file (pola Glob dan ukuran file).
 
-| Layer | Technology |
+## Status Saat Ini
+
+### Yang Sudah Jalan
+
+| Komponen | Status |
 |---|---|
-| **Frontend** | Next.js 15, React, TypeScript, Tailwind CSS v4, shadcn/ui |
-| **Backend** | Express.js, Node.js 20+, TypeScript |
+| Backend API (Express.js) | Selesai |
+| Autentikasi (JWT + HttpOnly Cookie) | Selesai |
+| Dashboard dengan statistik real-time | Selesai |
+| Backup otomatis (scheduler + cron) | Selesai |
+| File Watcher (monitoring real-time) | Selesai |
+| Integrasi Google Drive API | Selesai |
+| File Manager (browse, upload, download) | Selesai |
+| Background Task System (persistent, resumable) | Selesai |
+| Log streaming via SSE | Selesai |
+| Audit Log | Selesai |
+| Halaman Settings | Selesai |
+| Halaman Log Viewer | Selesai |
+| Rate Limiting dan Security Headers | Selesai |
+| Forced Password Change (login pertama) | Selesai |
+
+### Halaman Frontend
+
+| Halaman | Keterangan |
+|---|---|
+| Login | Halaman login dengan validasi |
+| Change Password | Wajib ganti password saat pertama kali login |
+| Dashboard | Statistik backup, status service, overview |
+| Backup | Kontrol start/stop backup, daftar job |
+| File Manager | Browse file lokal dan Drive, upload/download |
+| Logs | Viewer log aplikasi |
+| Audit | Riwayat aksi sensitif user |
+| Settings | Konfigurasi backup, Drive, exclusion filter |
+
+### API Endpoint yang Tersedia
+
+| Grup | Endpoint |
+|---|---|
+| Auth | Login, logout, refresh token, me, change password |
+| Backup | Start, stop, status, daftar job, detail job |
+| Dashboard | Statistik dashboard |
+| Logs | Ambil log aplikasi |
+| Settings | Baca/update settings, test koneksi Drive, OAuth flow |
+| File Manager | List/create/rename/delete (lokal dan Drive), compare, upload, download |
+| Task | List task, detail task, resume task, SSE stream |
+| Audit | Ambil audit log |
+
+## Tech Stack
+
+| Layer | Teknologi |
+|---|---|
+| **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui |
+| **Backend** | Express.js 5, Node.js 20+, TypeScript |
 | **Database** | SQLite (sql.js — pure JS/WASM) |
-| **Auth & Security** | JWT (jose), bcryptjs, HTTP-Only Cookies, Trust Proxies |
-| **Drive Integration** | Google APIs v3 |
+| **Auth dan Keamanan** | JWT (jose), bcryptjs, HttpOnly Cookie, Helmet |
+| **Integrasi Drive** | Google APIs v3 |
+| **Process Manager** | PM2 (ecosystem.config.js) |
 
-## 🚀 Quick Start
+## Cara Menjalankan
 
-### 1. Prerequisites
+### 1. Prasyarat
 
-- Node.js 20+
-- A Google Cloud Platform (GCP) Service Account with Google Drive API enabled.
+- Node.js 20 atau lebih baru
+- Akun Google Cloud Platform (GCP) Service Account dengan Google Drive API yang sudah diaktifkan
 
 ### 2. Setup Backend
 
@@ -42,10 +91,10 @@ cp .env.example .env
 npm install
 ```
 
-> **CRITICAL SECURITY STEP:** Edit your `.env` file. You **must** generate secure random strings for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` (e.g. using `openssl rand -base64 64`). You must also define your initial `ADMIN_PASSWORD`.
+> **Langkah Keamanan Penting:** Edit file `.env` kamu. Wajib generate string acak yang kuat untuk `JWT_ACCESS_SECRET` dan `JWT_REFRESH_SECRET` (contoh: pakai `openssl rand -base64 64`). Jangan lupa juga set `ADMIN_PASSWORD`.
 
 ```bash
-# Start backend in dev mode
+# Jalankan backend dalam mode development
 npm run dev
 ```
 
@@ -54,57 +103,76 @@ npm run dev
 ```bash
 cd frontend
 npm install
-# Start frontend in dev mode
+# Jalankan frontend dalam mode development
 npm run dev
 ```
 
-### 4. Google Drive Setup
+Frontend akan berjalan di port 4300 (`http://localhost:4300`).
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com).
-2. Create a new project and enable the **Google Drive API**.
-3. Create a **Service Account** and download its JSON key file.
-4. Save the key file to the exact path: `backend/credentials/service-account.json`.
-5. Create a folder in your personal or organizational Google Drive.
-6. Share that Drive folder with your service account's generated email address (giving it Editor access).
-7. Copy the ID of the folder from its URL and configure it inside the Nova Central Settings UI.
+### 4. Setup Google Drive
 
-### 5. Default Login
+1. Buka [Google Cloud Console](https://console.cloud.google.com).
+2. Buat project baru dan aktifkan **Google Drive API**.
+3. Buat **Service Account** dan download file JSON key-nya.
+4. Simpan file key tersebut ke path: `backend/credentials/service-account.json`.
+5. Buat folder di Google Drive kamu (personal atau organisasi).
+6. Share folder tersebut ke email service account (kasih akses Editor).
+7. Salin ID folder dari URL-nya dan masukkan di halaman Settings Nova Central.
+
+### 5. Login Pertama Kali
 
 - **Username:** `admin`
-- **Password:** *(Whatever you set as `ADMIN_PASSWORD` in your `.env` file)*
+- **Password:** *(sesuai yang kamu set di `ADMIN_PASSWORD` pada file `.env`)*
 
-> ⚠️ **Note:** Upon your first successful login, the system will instantly force you to create a new, strong password before you can access the dashboard.
+> Saat login pertama kali, sistem akan langsung memaksa kamu membuat password baru yang kuat sebelum bisa masuk ke dashboard.
 
-## 🔐 Security Architecture
+### 6. Jalankan di Production (PM2)
 
-Nova Central implements strict security practices to ensure data remains secure on public-facing networks:
+```bash
+# Build backend dan frontend terlebih dahulu
+cd backend && npm run build
+cd ../frontend && npm run build
 
-- **JWT Tokens via HttpOnly Cookies:** Prevents Cross-Site Scripting (XSS) attacks by removing tokens from JavaScript accessibility and JSON response bodies.
-- **Path Traversal Protection:** All filesystem interactions are strictly sandboxed against escaping their authorized root boundaries.
-- **Audit Trails:** The `/api/audit` subsystem tracks all sensitive activity, ensuring observability over administrative actions.
-- **Forced Password Rotation:** Flag-based redirection prevents users with weak or default passwords from using the system.
-- **bcrypt Hashing (Cost 12):** Provides strong brute-force resistance.
-- **Rate Limiting:** Protects `/auth/login` (5 per 15m) and general APIs (200 per 15m).
-- **Data Integrity:** Transfers are verified using streamed SHA-256 hashing.
+# Jalankan dengan PM2
+pm2 start ecosystem.config.js
+```
 
-## 📁 Repository Structure
+## Arsitektur Keamanan
+
+Nova Central menerapkan beberapa lapisan keamanan untuk menjaga data tetap aman di jaringan publik:
+
+- **JWT Token via HttpOnly Cookie:** Mencegah serangan XSS karena token tidak bisa diakses lewat JavaScript atau response body.
+- **Proteksi Path Traversal:** Semua interaksi filesystem di-sandbox supaya tidak bisa keluar dari batas direktori yang diizinkan.
+- **Audit Trail:** Subsistem `/api/audit` mencatat semua aktivitas sensitif untuk memastikan transparansi aksi admin.
+- **Wajib Ganti Password:** Redirect otomatis memaksa user dengan password default untuk mengganti password sebelum bisa menggunakan sistem.
+- **Hashing bcrypt (Cost 12):** Memberikan ketahanan yang kuat terhadap brute-force.
+- **Rate Limiting:** Proteksi endpoint `/auth/login` (5 request per 15 menit) dan API umum (200 request per 15 menit).
+- **Verifikasi Integritas Data:** Transfer file diverifikasi menggunakan hashing SHA-256.
+
+## Struktur Repository
 
 ```
 nova_central/
-├── backend/          # Express.js API server
+├── backend/              # Server API Express.js
 │   ├── src/
-│   │   ├── config/       # Env validation, database bootstrap
-│   │   ├── controllers/  # API business logic (Auth, Filemanager, Audit, Settings)
-│   │   ├── middleware/   # Rate Limiters, JWT Verification, Security Headers
-│   │   ├── models/       # Database schemas (Backup, Settings, User, Task)
-│   │   └── services/     # Drive integration, Sync engine, Watchers
+│   │   ├── config/       # Validasi env, bootstrap database
+│   │   ├── controllers/  # Logic API (Auth, Backup, FileManager, Audit, Settings, Task, Logs)
+│   │   ├── middleware/   # Rate Limiter, Verifikasi JWT, Security Headers
+│   │   ├── models/       # Skema database (Backup, Settings, User, FileRecord)
+│   │   ├── routes/       # Definisi route API
+│   │   ├── services/     # Integrasi Drive, Sync engine, Watcher, Task, Scheduler
+│   │   ├── types/        # TypeScript type definitions
+│   │   └── utils/        # Fungsi utility
 │   └── package.json
-├── frontend/         # Next.js UI Application
+├── frontend/             # Aplikasi UI Next.js
 │   ├── src/
-│   │   ├── app/          # Core pages (Login, Dashboard, Audit, Settings)
-│   │   ├── components/   # UI elements (Sidebar, Header, shadcn primitives)
-│   │   ├── hooks/        # Auth Context, Polling
-│   │   └── lib/          # API Client interface
+│   │   ├── app/          # Halaman (Login, Dashboard, Backup, Files, Logs, Audit, Settings)
+│   │   ├── components/   # Komponen UI (Layout, File Manager, shadcn primitives)
+│   │   ├── hooks/        # Auth Context, custom hooks
+│   │   ├── lib/          # API Client interface
+│   │   ├── services/     # Service layer frontend
+│   │   └── types/        # TypeScript type definitions
 │   └── package.json
+├── ecosystem.config.js   # Konfigurasi PM2 untuk production
 └── README.md
 ```
