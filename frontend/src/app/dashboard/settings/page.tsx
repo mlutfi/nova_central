@@ -117,7 +117,7 @@ export default function SettingsPage() {
     <StaggerContainer className="space-y-6 max-w-3xl">
       {/* Source Configuration */}
       <StaggerItem>
-        <Card className="border border-border/50 shadow-sm">
+        <Card className="border border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <FolderOpen className="w-4 h-4 text-primary" />
@@ -157,7 +157,7 @@ export default function SettingsPage() {
 
       {/* Google Drive */}
       <StaggerItem>
-        <Card className="border border-border/50 shadow-sm">
+        <Card className="border border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Cloud className="w-4 h-4 text-primary" />
@@ -246,7 +246,7 @@ export default function SettingsPage() {
 
       {/* Schedule */}
       <StaggerItem>
-        <Card className="border border-border/50 shadow-sm">
+        <Card className="border border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary" />
@@ -291,7 +291,7 @@ export default function SettingsPage() {
       <StaggerItem>
         <Button
           id="save-settings"
-          className="w-full h-11 font-semibold shadow-md shadow-primary/20"
+          className="w-full h-11 font-semibold"
           onClick={handleSave}
           disabled={isSaving}
         >
@@ -306,7 +306,7 @@ export default function SettingsPage() {
 
       {/* File Exclusion Filters */}
       <StaggerItem>
-        <Card className="border border-border/50 shadow-sm">
+        <Card className="border border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Filter className="w-4 h-4 text-primary" />
@@ -349,7 +349,7 @@ export default function SettingsPage() {
 
       {/* Security — Password Change */}
       <StaggerItem>
-        <Card className="border border-border/50 shadow-sm">
+        <Card className="border border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Shield className="w-4 h-4 text-primary" />

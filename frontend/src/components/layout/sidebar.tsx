@@ -35,7 +35,7 @@ export function Sidebar() {
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       >
         <motion.div
-          className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center shadow-md shadow-sidebar-primary/25"
+          className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center"
           whileHover={{ scale: 1.05, rotate: 5 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
         >

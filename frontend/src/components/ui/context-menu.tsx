@@ -149,7 +149,7 @@ export function ContextMenuContent({
       ref={menuRef}
       className={cn(
         'fixed z-[100] min-w-[180px] overflow-hidden rounded-xl border border-border/60',
-        'bg-popover/95 backdrop-blur-xl p-1.5 text-popover-foreground shadow-xl shadow-black/10',
+        'bg-popover/95 backdrop-blur-xl p-1.5 text-popover-foreground',
         'animate-in fade-in-0 zoom-in-95 duration-150',
         className
       )}

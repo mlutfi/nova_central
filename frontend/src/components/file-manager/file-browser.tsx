@@ -202,7 +202,7 @@ export function FileBrowser({
     file.source === 'local' ? file.isDirectory : file.isFolder;
 
   return (
-    <div className="flex flex-col h-full rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
+    <div className="flex flex-col h-full rounded-2xl border border-border/50 bg-card overflow-hidden">
       {/* ── Header ── */}
       <div className="shrink-0 px-4 py-3 bg-gradient-to-r from-card to-secondary/20 border-b border-border/40">
         <div className="flex items-center justify-between">

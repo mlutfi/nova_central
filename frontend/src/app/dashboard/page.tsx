@@ -65,7 +65,7 @@ export default function DashboardPage() {
       ) : (
         <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StaggerItem>
-            <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300 h-full">
+            <Card className="border border-border/50 h-full">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -88,7 +88,7 @@ export default function DashboardPage() {
           </StaggerItem>
 
           <StaggerItem>
-            <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300 h-full">
+            <Card className="border border-border/50 h-full">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           </StaggerItem>
 
           <StaggerItem>
-            <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300 h-full">
+            <Card className="border border-border/50 h-full">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -134,7 +134,7 @@ export default function DashboardPage() {
           </StaggerItem>
 
           <StaggerItem>
-            <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300 h-full">
+            <Card className="border border-border/50 h-full">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
@@ -164,7 +164,7 @@ export default function DashboardPage() {
           <CardSkeleton rows={4} className="lg:col-span-1" />
         ) : (
           <FadeIn delay={0.1}>
-            <Card className="lg:col-span-1 border border-border/50 shadow-sm">
+            <Card className="lg:col-span-1 border border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Activity className="w-4 h-4 text-primary" />
@@ -245,7 +245,7 @@ export default function DashboardPage() {
           <CardSkeleton rows={5} className="lg:col-span-2" />
         ) : (
           <FadeIn delay={0.15}>
-            <Card className="lg:col-span-2 border border-border/50 shadow-sm">
+            <Card className="lg:col-span-2 border border-border/50">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">

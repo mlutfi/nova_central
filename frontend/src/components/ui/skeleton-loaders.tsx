@@ -74,7 +74,7 @@ export function PageLoader() {
           </svg>
           {/* Inner logo dot */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-4 h-4 rounded-full bg-primary/90 shadow-lg shadow-primary/30" />
+            <div className="w-4 h-4 rounded-full bg-primary/90" />
           </div>
         </div>
 
@@ -133,7 +133,7 @@ export function CircularSpinner({ className, size = 'md' }: { className?: string
 
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm">
+    <div className="rounded-xl border border-border/50 bg-card p-5">
       <div className="flex items-start justify-between">
         <div className="space-y-2 flex-1">
           <Skeleton className="h-3 w-28" />
@@ -150,7 +150,7 @@ export function StatCardSkeleton() {
 
 export function CardSkeleton({ rows = 3, className }: { rows?: number; className?: string }) {
   return (
-    <div className={cn('rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden', className)}>
+    <div className={cn('rounded-xl border border-border/50 bg-card overflow-hidden', className)}>
       {/* Header */}
       <div className="px-5 py-4 border-b border-border/30">
         <div className="flex items-center gap-2">

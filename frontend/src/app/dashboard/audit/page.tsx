@@ -93,7 +93,7 @@ export default function AuditPage() {
 
       {/* Filters */}
       <FadeIn delay={0.05}>
-        <Card className="border border-border/50 shadow-sm">
+        <Card className="border border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 flex-wrap">
               <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -129,7 +129,7 @@ export default function AuditPage() {
 
       {/* Logs Table */}
       <FadeIn delay={0.1}>
-        <Card className="border border-border/50 shadow-sm">
+        <Card className="border border-border/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-primary" />

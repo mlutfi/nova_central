@@ -122,7 +122,7 @@ export default function ChangePasswordPage() {
       <div className="w-full max-w-[440px] mx-4 animate-fade-in relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-5 shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-5">
             <Shield className="w-8 h-8 text-amber-500" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -142,7 +142,7 @@ export default function ChangePasswordPage() {
           </div>
         )}
 
-        <Card className="border border-border/60 shadow-xl shadow-black/5 bg-card/80 backdrop-blur-sm">
+        <Card className="border border-border/60 bg-card/80 backdrop-blur-sm">
           <CardHeader className="pb-2 pt-6 px-6">
             <h2 className="text-base font-semibold">Set New Password</h2>
           </CardHeader>
@@ -206,7 +206,7 @@ export default function ChangePasswordPage() {
               <Button
                 id="submit-change-password"
                 type="submit"
-                className="w-full h-11 mt-2 font-semibold text-sm shadow-md shadow-primary/25"
+                className="w-full h-11 mt-2 font-semibold text-sm"
                 disabled={isSubmitting || !currentPassword || !newPassword || !confirmPassword}
               >
                 {isSubmitting ? (

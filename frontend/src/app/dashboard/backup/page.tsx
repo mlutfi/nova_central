@@ -136,7 +136,7 @@ export default function BackupPage() {
         <StaggerContainer className="space-y-6">
           {/* Manual Backup Control */}
           <StaggerItem>
-            <Card className="border border-primary/20 shadow-sm overflow-hidden bg-primary/5">
+            <Card className="border border-primary/20 overflow-hidden bg-primary/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <FolderSync className="w-5 h-5 text-primary" />
@@ -197,7 +197,7 @@ export default function BackupPage() {
                 ) : (
                   <Button
                     id="start-backup"
-                    className="w-full h-12 text-base font-semibold shadow-md shadow-primary/20"
+                    className="w-full h-12 text-base font-semibold"
                     onClick={handleStartBackup}
                   >
                     <Play className="w-5 h-5 mr-2" />
@@ -211,7 +211,7 @@ export default function BackupPage() {
           {/* Auto Backup Controls */}
           <StaggerItem>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card className="border border-border/50 shadow-sm">
+              <Card className="border border-border/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Timer className="w-4 h-4 text-primary" />
@@ -255,7 +255,7 @@ export default function BackupPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border border-border/50 shadow-sm">
+              <Card className="border border-border/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
                     <Eye className="w-4 h-4 text-primary" />
@@ -290,7 +290,7 @@ export default function BackupPage() {
 
           {/* File Stats */}
           <StaggerItem>
-            <Card className="border border-border/50 shadow-sm">
+            <Card className="border border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold">File Sync Overview</CardTitle>
               </CardHeader>

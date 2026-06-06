@@ -450,7 +450,7 @@ export function UploadProgress({ transfers, onClose, onResume }: UploadProgressP
   if (minimized) {
     return (
       <motion.button
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-3 py-2 rounded-full border border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/10 cursor-pointer hover:scale-105 transition-transform"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-3 py-2 rounded-full border border-border/50 bg-card/95 backdrop-blur-xl cursor-pointer hover:scale-105 transition-transform"
         onClick={() => setMinimized(false)}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -488,7 +488,7 @@ export function UploadProgress({ transfers, onClose, onResume }: UploadProgressP
         exit={{ opacity: 0, y: 30, scale: 0.95 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       >
-        <div className="rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/10 overflow-hidden">
+        <div className="rounded-2xl border border-border/50 bg-card/95 backdrop-blur-xl overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 bg-gradient-to-r from-primary/5 to-transparent border-b border-border/30 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
