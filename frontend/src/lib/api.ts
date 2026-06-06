@@ -12,6 +12,40 @@ interface ApiResponse<T = any> {
   status: number;
 }
 
+// ─── Refresh Token Mutex ───
+// Prevents multiple concurrent API calls from each triggering their own
+// refresh, which would cause token-reuse detection and session invalidation.
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshToken(): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Acquire a refresh lock: if a refresh is already in-flight, wait for it.
+ * Otherwise, start a new refresh and let others wait for it.
+ */
+async function acquireRefresh(): Promise<boolean> {
+  if (refreshPromise) {
+    // Another request is already refreshing — wait for it
+    return refreshPromise;
+  }
+
+  refreshPromise = refreshToken().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
+}
+
 async function request<T = any>(
   endpoint: string,
   options: ApiOptions = {}
@@ -35,26 +69,29 @@ async function request<T = any>(
 
     let response = await fetch(`${API_BASE}${endpoint}`, config);
 
-    // Auto-refresh on 401 with TOKEN_EXPIRED
+    // Auto-refresh on 401
     if (response.status === 401) {
       const errorData = await response.json().catch(() => ({}));
-      if (errorData.code === 'TOKEN_EXPIRED') {
-        const refreshed = await refreshToken();
+
+      // Only attempt refresh if the token was expired or missing
+      // (not for genuinely unauthorized requests like wrong credentials)
+      if (
+        errorData.code === 'TOKEN_EXPIRED' ||
+        errorData.error === 'Authentication required'
+      ) {
+        const refreshed = await acquireRefresh();
         if (refreshed) {
-          // Retry original request
+          // Retry original request with new cookies
           response = await fetch(`${API_BASE}${endpoint}`, config);
         } else {
-          // Redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
           return { data: null, error: 'Session expired', status: 401 };
         }
       } else {
-        if (typeof window !== 'undefined' && !endpoint.includes('/auth/')) {
-          window.location.href = '/login';
-        }
-        return { data: null, error: errorData.error || 'Unauthorized', status: 401 };
+        return {
+          data: null,
+          error: errorData.error || 'Unauthorized',
+          status: 401,
+        };
       }
     }
 
@@ -75,18 +112,6 @@ async function request<T = any>(
       error: error.message || 'Network error',
       status: 0,
     };
-  }
-}
-
-async function refreshToken(): Promise<boolean> {
-  try {
-    const response = await fetch(`${API_BASE}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    return response.ok;
-  } catch {
-    return false;
   }
 }
 

@@ -32,7 +32,7 @@ export const changePasswordValidation = [
     .withMessage('New password must be at least 8 characters with uppercase, lowercase, and number'),
 ];
 
-async function generateTokens(userId: number) {
+export async function generateTokens(userId: number) {
   const accessSecret = new TextEncoder().encode(env.JWT_ACCESS_SECRET);
   const refreshSecret = new TextEncoder().encode(env.JWT_REFRESH_SECRET);
 
@@ -64,7 +64,7 @@ async function generateTokens(userId: number) {
   return { accessToken, refreshToken };
 }
 
-function setTokenCookies(res: Response, accessToken: string, refreshToken: string): void {
+export function setTokenCookies(res: Response, accessToken: string, refreshToken: string): void {
   const isProduction = env.NODE_ENV === 'production';
 
   res.cookie('access_token', accessToken, {

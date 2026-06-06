@@ -29,10 +29,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = useCallback(async () => {
     try {
-      const { data, error } = await authApi.me();
+      const { data, error, status } = await authApi.me();
       if (data && !error) {
         setUser(data.user);
         setMustChangePassword(data.mustChangePassword === true);
+      } else if (status === 401) {
+        // Access token may have expired and server-side refresh wasn't possible.
+        // Attempt an explicit refresh and retry once.
+        try {
+          const refreshRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4400/api'}/auth/refresh`,
+            { method: 'POST', credentials: 'include' }
+          );
+          if (refreshRes.ok) {
+            // Tokens rotated — retry /auth/me
+            const retry = await authApi.me();
+            if (retry.data && !retry.error) {
+              setUser(retry.data.user);
+              setMustChangePassword(retry.data.mustChangePassword === true);
+            } else {
+              setUser(null);
+              setMustChangePassword(false);
+            }
+          } else {
+            setUser(null);
+            setMustChangePassword(false);
+          }
+        } catch {
+          setUser(null);
+          setMustChangePassword(false);
+        }
       } else {
         setUser(null);
         setMustChangePassword(false);
