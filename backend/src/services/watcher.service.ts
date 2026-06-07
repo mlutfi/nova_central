@@ -39,6 +39,7 @@ export class WatcherService {
     this.watcher = chokidar.watch(validPaths, {
       persistent: true,
       ignoreInitial: true,
+      ignorePermissionErrors: true,
       awaitWriteFinish: {
         stabilityThreshold: 2000,
         pollInterval: 100,
@@ -100,7 +101,7 @@ export class WatcherService {
         BackupModel.updateProgress(job.id, 1, 0, 0, 1);
         BackupModel.complete(job.id);
       } catch (error: any) {
-        logger.error(`Watcher sync failed for ${filePath}:`, error.message);
+        logger.error(`Watcher sync failed for ${filePath}: ${error.message || error}`);
       }
     }, 500);
 
@@ -112,7 +113,7 @@ export class WatcherService {
       logger.debug(`File deleted: ${filePath}`);
       await this.syncService.handleFileDeletion(filePath);
     } catch (error: any) {
-      logger.error(`Watcher delete handling failed for ${filePath}:`, error.message);
+      logger.error(`Watcher delete handling failed for ${filePath}: ${error.message || error}`);
     }
   }
 }

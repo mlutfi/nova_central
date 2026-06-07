@@ -183,7 +183,7 @@ export class SyncService extends EventEmitter {
             localPath: filePath,
             status: 'error',
           });
-          logger.error(`Failed to sync file ${filePath}:`, fileError.message);
+          logger.error(`Failed to sync file ${filePath}: ${fileError.message || fileError}`);
           BackupModel.updateProgress(jobId, synced, failed, bytesTransferred, total);
         }
       }
@@ -270,7 +270,7 @@ export class SyncService extends EventEmitter {
         logger.debug(`Watcher synced: ${relativePath}`);
       }
     } catch (error: any) {
-      logger.error(`Watcher sync failed for ${filePath}:`, error.message);
+      logger.error(`Watcher sync failed for ${filePath}: ${error.message || error}`);
       FileRecordModel.markError(filePath);
     }
   }
@@ -286,7 +286,7 @@ export class SyncService extends EventEmitter {
       try {
         await this.gdrive.deleteFile(record.drive_file_id);
       } catch (error: any) {
-        logger.error(`Failed to delete from Drive: ${filePath}`, error.message);
+        logger.error(`Failed to delete from Drive: ${filePath}: ${error.message || error}`);
       }
     }
 
@@ -300,20 +300,28 @@ export class SyncService extends EventEmitter {
   private scanDirectory(dirPath: string): string[] {
     const files: string[] = [];
 
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
 
-      // Skip hidden files/folders and common exclusions
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') {
-        continue;
-      }
+        // Skip hidden files/folders and common exclusions
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+          continue;
+        }
 
-      if (entry.isDirectory()) {
-        files.push(...this.scanDirectory(fullPath));
-      } else if (entry.isFile()) {
-        files.push(fullPath);
+        try {
+          if (entry.isDirectory()) {
+            files.push(...this.scanDirectory(fullPath));
+          } else if (entry.isFile()) {
+            files.push(fullPath);
+          }
+        } catch (innerError: any) {
+          logger.warn(`Skipping path ${fullPath} due to error: ${innerError.message || innerError}`);
+        }
       }
+    } catch (error: any) {
+      logger.warn(`Skipping directory ${dirPath} due to read error: ${error.message || error}`);
     }
 
     return files;

@@ -122,6 +122,12 @@ export async function listLocal(req: AuthRequest, res: Response): Promise<void> 
       files,
     });
   } catch (error: any) {
+    if (error.code === 'EACCES' || error.code === 'EPERM') {
+      const requestedPath = (req.query.path as string) || '';
+      logger.warn(`Permission denied listing local files for path ${requestedPath}: ${error.message || error}`);
+      res.status(403).json({ error: 'Permission denied' });
+      return;
+    }
     logger.error('List local files error:', error);
     res.status(500).json({ error: error.message || 'Failed to list files' });
   }
@@ -358,62 +364,78 @@ async function compareRecursive(
   skippable: SkippableFile[],
   counters: { newFiles: number; totalFiles: number }
 ): Promise<void> {
-  const entries = fs.readdirSync(localDir, { withFileTypes: true });
+  let entries: fs.Dirent[] = [];
+  try {
+    entries = fs.readdirSync(localDir, { withFileTypes: true });
+  } catch (err: any) {
+    logger.warn(`Skipping compare in directory ${localDir} due to error: ${err.message || err}`);
+    return;
+  }
 
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
     const fullPath = path.join(localDir, entry.name);
     const relativePath = path.relative(basePath, fullPath).replace(/\\/g, '/');
 
-    if (entry.isDirectory()) {
-      // Check if folder exists on Drive
-      const existingFolderId = await service.findFolder(entry.name, driveFolderId);
-      if (existingFolderId) {
-        // Folder exists — recurse into it to compare contents
-        await compareRecursive(service, fullPath, existingFolderId, basePath, conflicts, skippable, counters);
-      } else {
-        // Folder doesn't exist on Drive — all files inside are new
-        const countLocal = (dir: string) => {
-          const subs = fs.readdirSync(dir, { withFileTypes: true });
-          for (const s of subs) {
-            if (s.name.startsWith('.')) continue;
-            const sp = path.join(dir, s.name);
-            if (s.isDirectory()) {
-              countLocal(sp);
-            } else {
-              counters.newFiles++;
-              counters.totalFiles++;
-            }
-          }
-        };
-        countLocal(fullPath);
-      }
-    } else {
-      counters.totalFiles++;
-      let localSize = 0;
-      try { localSize = fs.statSync(fullPath).size; } catch { /* skip */ }
-
-      // Check if file with same name exists in this Drive folder
-      const driveFiles = await service.listFiles(driveFolderId);
-      const existing = driveFiles.find(
-        (f) => f.name === entry.name && !f.isFolder
-      );
-
-      if (existing) {
-        const driveSize = parseInt(existing.size || '0', 10);
-        if (localSize === driveSize) {
-          skippable.push({ relativePath, size: localSize });
+    try {
+      if (entry.isDirectory()) {
+        // Check if folder exists on Drive
+        const existingFolderId = await service.findFolder(entry.name, driveFolderId);
+        if (existingFolderId) {
+          // Folder exists — recurse into it to compare contents
+          await compareRecursive(service, fullPath, existingFolderId, basePath, conflicts, skippable, counters);
         } else {
-          conflicts.push({
-            relativePath,
-            localSize,
-            driveSize,
-            driveFileId: existing.id,
-          });
+          // Folder doesn't exist on Drive — all files inside are new
+          const countLocal = (dir: string) => {
+            let subs: fs.Dirent[] = [];
+            try {
+              subs = fs.readdirSync(dir, { withFileTypes: true });
+            } catch (err: any) {
+              logger.warn(`Skipping count in directory ${dir} due to error: ${err.message || err}`);
+              return;
+            }
+            for (const s of subs) {
+              if (s.name.startsWith('.')) continue;
+              const sp = path.join(dir, s.name);
+              if (s.isDirectory()) {
+                countLocal(sp);
+              } else {
+                counters.newFiles++;
+                counters.totalFiles++;
+              }
+            }
+          };
+          countLocal(fullPath);
         }
       } else {
-        counters.newFiles++;
+        counters.totalFiles++;
+        let localSize = 0;
+        try { localSize = fs.statSync(fullPath).size; } catch { /* skip */ }
+
+        // Check if file with same name exists in this Drive folder
+        const driveFiles = await service.listFiles(driveFolderId);
+        const existing = driveFiles.find(
+          (f) => f.name === entry.name && !f.isFolder
+        );
+
+        if (existing) {
+          const driveSize = parseInt(existing.size || '0', 10);
+          if (localSize === driveSize) {
+            skippable.push({ relativePath, size: localSize });
+          } else {
+            conflicts.push({
+              relativePath,
+              localSize,
+              driveSize,
+              driveFileId: existing.id,
+            });
+          }
+        } else {
+          counters.newFiles++;
+        }
       }
+    } catch (err: any) {
+      logger.warn(`Skipping compare entry ${fullPath} due to error: ${err.message || err}`);
     }
   }
 }

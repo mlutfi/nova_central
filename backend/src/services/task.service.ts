@@ -224,8 +224,8 @@ export class TaskService {
 
       // Emit for SSE
       this.emitTaskUpdate(taskId);
-    } catch (err) {
-      logger.error(`Failed to append verbose log for task ${taskId}:`, err);
+    } catch (err: any) {
+      logger.error(`Failed to append verbose log for task ${taskId}: ${err.message || err}`);
     }
   }
 
@@ -243,8 +243,8 @@ export class TaskService {
           .run(JSON.stringify(logs), taskId);
         this.emitTaskUpdate(taskId);
       }
-    } catch (err) {
-      logger.error(`Failed to update verbose log for task ${taskId}:`, err);
+    } catch (err: any) {
+      logger.error(`Failed to update verbose log for task ${taskId}: ${err.message || err}`);
     }
   }
 
@@ -364,7 +364,7 @@ export class TaskService {
           }
         } catch (error: any) {
           // Fatal error — the whole task failed (e.g., Drive not connected, directory missing)
-          logger.error(`Task failed: ${task.id}`, error);
+          logger.error(`Task failed: ${task.id}: ${error.message || error}`);
           this.updateTaskStatus(task.id, 'FAILED', task.progress, undefined, error.message || 'Unknown error');
           this.appendVerboseLog(task.id, {
             type: 'error',
@@ -539,7 +539,17 @@ export class TaskService {
 
     const folderId = await this.gdriveService.createFolder(folderName, parentDriveId);
 
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    } catch (err: any) {
+      this.appendVerboseLog(taskId, {
+        type: 'error',
+        message: `Skipping directory ${relativeFolderPath} due to read error: ${err.message || err}`,
+      });
+      logger.error(`Failed to read directory ${dirPath}: ${err.message || err}`);
+      return results;
+    }
     
     // Sort: directories first, then files
     const sortedEntries = [...entries].sort((a, b) => {
@@ -640,7 +650,7 @@ export class TaskService {
               size: fileSize,
               status: 'error',
             });
-            logger.error(`Failed to overwrite file ${fullPath}:`, err);
+            logger.error(`Failed to overwrite file ${fullPath}: ${err.message || err}`);
 
             // Persist checkpoint even on failure
             this.persistCheckpoint(taskId, context.completedPaths, context.failedFiles, relativePath);
@@ -692,7 +702,7 @@ export class TaskService {
               size: fileSize,
               status: 'error',
             });
-            logger.error(`Failed to upload file ${fullPath}:`, err);
+            logger.error(`Failed to upload file ${fullPath}: ${err.message || err}`);
 
             // Persist checkpoint even on failure
             this.persistCheckpoint(taskId, context.completedPaths, context.failedFiles, relativePath);
