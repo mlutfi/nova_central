@@ -43,8 +43,8 @@ export class SchedulerService {
           logger.info('Scheduled backup starting...');
           const job = BackupModel.create('scheduled', sourcePath);
           await this.syncService.runSync(job.id, sourcePath);
-        } catch (error) {
-          logger.error('Scheduled backup error:', error);
+        } catch (error: any) {
+          logger.error(`Scheduled backup error: ${error.message || error}`);
         }
       },
       {

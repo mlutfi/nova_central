@@ -36,13 +36,13 @@ export async function startBackup(req: AuthRequest, res: Response): Promise<void
     logger.info(`Manual backup started: Job #${job.id}`);
 
     // Run sync in background
-    syncService.runSync(job.id, sourcePath).catch((err) => {
-      logger.error(`Backup job #${job.id} failed:`, err);
+    syncService.runSync(job.id, sourcePath).catch((err: any) => {
+      logger.error(`Backup job #${job.id} failed: ${err.message || err}`);
     });
 
     res.json({ message: 'Backup started', job });
-  } catch (error) {
-    logger.error('Start backup error:', error);
+  } catch (error: any) {
+    logger.error(`Start backup error: ${error.message || error}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -59,8 +59,8 @@ export async function stopBackup(req: AuthRequest, res: Response): Promise<void>
     }
 
     res.json({ message: 'Backup stopped' });
-  } catch (error) {
-    logger.error('Stop backup error:', error);
+  } catch (error: any) {
+    logger.error(`Stop backup error: ${error.message || error}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -80,8 +80,8 @@ export async function getStatus(req: AuthRequest, res: Response): Promise<void> 
       fileWatcherEnabled: SettingsModel.get('file_watcher_enabled') === 'true',
       serverTime: new Date().toISOString(),
     });
-  } catch (error) {
-    logger.error('Get status error:', error);
+  } catch (error: any) {
+    logger.error(`Get status error: ${error.message || error}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -105,8 +105,8 @@ export async function getJobs(req: AuthRequest, res: Response): Promise<void> {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch (error) {
-    logger.error('Get jobs error:', error);
+  } catch (error: any) {
+    logger.error(`Get jobs error: ${error.message || error}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -126,8 +126,8 @@ export async function getJob(req: AuthRequest, res: Response): Promise<void> {
     }
 
     res.json({ job });
-  } catch (error) {
-    logger.error('Get job error:', error);
+  } catch (error: any) {
+    logger.error(`Get job error: ${error.message || error}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -149,8 +149,8 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
       },
       serverTime: new Date().toISOString(),
     });
-  } catch (error) {
-    logger.error('Get dashboard stats error:', error);
+  } catch (error: any) {
+    logger.error(`Get dashboard stats error: ${error.message || error}`);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
