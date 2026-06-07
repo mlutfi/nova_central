@@ -59,7 +59,7 @@ export function getStatusColor(status: string): string {
     case 'completed':
       return 'bg-emerald-100 text-emerald-700 border-emerald-200';
     case 'running':
-      return 'bg-blue-100 text-blue-700 border-blue-200';
+      return 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20';
     case 'failed':
       return 'bg-red-100 text-red-700 border-red-200';
     case 'cancelled':

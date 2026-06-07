@@ -106,17 +106,17 @@ export default function BackupPage() {
             <strong className="text-foreground">
               {status?.serverTime
                 ? `${new Intl.DateTimeFormat('id-ID', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                  }).format(new Date(status.serverTime))}, ${new Date(
-                    status.serverTime
-                  ).toLocaleTimeString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true,
-                  })}`
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                }).format(new Date(status.serverTime))}, ${new Date(
+                  status.serverTime
+                ).toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true,
+                })}`
                 : 'Loading...'}
             </strong>
           </span>
@@ -156,7 +156,7 @@ export default function BackupPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <motion.div
-                          className="w-2 h-2 rounded-full bg-blue-500"
+                          className="w-2 h-2 rounded-full bg-emerald-500"
                           animate={{ scale: [1, 1.4, 1] }}
                           transition={{ duration: 1.2, repeat: Infinity }}
                         />
@@ -167,10 +167,10 @@ export default function BackupPage() {
                       </Badge>
                     </div>
 
-                    <div className="relative">
-                      <Progress value={progress} className="h-2" />
+                    <div className="relative overflow-hidden rounded-full">
+                      <Progress value={progress} className="h-2 [&_[data-slot=progress-indicator]]:!bg-emerald-500" />
                       <motion.div
-                        className="absolute inset-0 h-2 rounded-full bg-gradient-to-r from-blue-500/30 to-transparent"
+                        className="absolute inset-0 h-2 rounded-full bg-gradient-to-r from-emerald-500/30 to-transparent"
                         animate={{ x: ['-100%', '200%'] }}
                         transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                       />

@@ -283,7 +283,7 @@ export default function DashboardPage() {
                           <motion.div
                             className={`w-2 h-2 rounded-full ${
                               job.status === 'running'
-                                ? 'bg-blue-500'
+                                ? 'bg-emerald-500'
                                 : job.status === 'completed'
                                 ? 'bg-emerald-500'
                                 : job.status === 'failed'
