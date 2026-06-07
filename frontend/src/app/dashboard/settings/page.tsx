@@ -20,8 +20,10 @@ import {
   CheckCircle,
   XCircle,
   Filter,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
 import { StaggerContainer, StaggerItem } from '@/components/ui/motion';
 import { SettingsSkeleton } from '@/components/ui/skeleton-loaders';
 import type { AppSettings } from '@/types';
@@ -282,6 +284,69 @@ export default function SettingsPage() {
                 onChange={(e) => updateSetting('max_concurrent_uploads', e.target.value)}
                 className="w-24"
               />
+            </div>
+          </CardContent>
+        </Card>
+      </StaggerItem>
+
+      {/* Sync & Deletion Options */}
+      <StaggerItem>
+        <Card className="border border-border/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Trash2 className="w-4 h-4 text-primary" />
+              Sync & Deletion Options
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-card/30 hover:bg-card/50 transition-colors">
+                <div className="flex flex-col space-y-1 pr-4">
+                  <Label htmlFor="watcher-delete-on-drive" className="text-sm font-medium cursor-pointer">
+                    Watcher: Delete on Google Drive when deleted locally
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Automatically delete corresponding files on Google Drive when you delete them locally on the server.
+                  </p>
+                </div>
+                <Switch
+                  id="watcher-delete-on-drive"
+                  checked={settings.watcher_delete_on_drive === 'true'}
+                  onCheckedChange={(checked) => updateSetting('watcher_delete_on_drive', checked ? 'true' : 'false')}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg border border-border/40 bg-card/30 hover:bg-card/50 transition-colors">
+                <div className="flex flex-col space-y-1 pr-4">
+                  <Label htmlFor="backup-delete-on-drive" className="text-sm font-medium cursor-pointer">
+                    Backup: Delete on Google Drive when deleted locally
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    During manual/auto backup, delete files on Google Drive that are no longer present on the server.
+                  </p>
+                </div>
+                <Switch
+                  id="backup-delete-on-drive"
+                  checked={settings.backup_delete_on_drive === 'true'}
+                  onCheckedChange={(checked) => updateSetting('backup_delete_on_drive', checked ? 'true' : 'false')}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-colors">
+                <div className="flex flex-col space-y-1 pr-4">
+                  <Label htmlFor="backup-delete-local" className="text-sm font-medium text-destructive dark:text-red-400 cursor-pointer">
+                    Backup: Delete locally when deleted on Google Drive
+                  </Label>
+                  <p className="text-xs text-red-600/80 dark:text-red-400/80">
+                    Warning: During manual/auto backup, if a file is missing on Google Drive, it will also be permanently deleted from the local server.
+                  </p>
+                </div>
+                <Switch
+                  id="backup-delete-local"
+                  checked={settings.backup_delete_local === 'true'}
+                  onCheckedChange={(checked) => updateSetting('backup_delete_local', checked ? 'true' : 'false')}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

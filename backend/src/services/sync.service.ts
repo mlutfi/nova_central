@@ -7,6 +7,7 @@ import { SettingsModel } from '../models/settings.model.js';
 import { GDriveService } from './gdrive.service.js';
 import { computeFileHash } from '../utils/hash.js';
 import { logger } from '../utils/logger.js';
+import { getDatabase } from '../config/database.js';
 
 export interface SyncProgress {
   jobId: number;
@@ -124,6 +125,34 @@ export class SyncService extends EventEmitter {
           const fileHash = await computeFileHash(filePath);
           const existingRecord = FileRecordModel.findByPath(filePath);
 
+          let isDeletedOnDrive = false;
+          if (existingRecord?.drive_file_id && SettingsModel.get('backup_delete_local') === 'true') {
+            try {
+              const meta = await this.gdrive.getFileMetadata(existingRecord.drive_file_id);
+              if (!meta) {
+                isDeletedOnDrive = true;
+              }
+            } catch (err: any) {
+              logger.error(`Failed to check metadata for ${filePath} on Drive: ${err.message || err}`);
+            }
+          }
+
+          if (isDeletedOnDrive) {
+            try {
+              fs.unlinkSync(filePath);
+              FileRecordModel.markDeleted(filePath);
+              logger.info(`Deleted local file because it was deleted on Drive: ${filePath}`);
+              synced++;
+              BackupModel.updateProgress(jobId, synced, failed, bytesTransferred, total);
+              continue;
+            } catch (err: any) {
+              logger.error(`Failed to delete local file ${filePath}: ${err.message || err}`);
+              failed++;
+              BackupModel.updateProgress(jobId, synced, failed, bytesTransferred, total);
+              continue;
+            }
+          }
+
           if (
             existingRecord &&
             existingRecord.file_hash === fileHash &&
@@ -186,6 +215,35 @@ export class SyncService extends EventEmitter {
           logger.error(`Failed to sync file ${filePath}: ${fileError.message || fileError}`);
           BackupModel.updateProgress(jobId, synced, failed, bytesTransferred, total);
         }
+      }
+
+      // Sync local deletions to Drive (if enabled) and update database status
+      try {
+        const db = getDatabase();
+        const records = db.prepare("SELECT * FROM file_records WHERE status != 'deleted'").all() as any[];
+        const deleteFromDrive = SettingsModel.get('backup_delete_on_drive') === 'true';
+
+        for (const record of records) {
+          if (this.isCancelled) {
+            break;
+          }
+          const belongsToSource = validPaths.some(p => record.local_path.startsWith(p));
+          if (belongsToSource) {
+            if (!fs.existsSync(record.local_path)) {
+              if (record.drive_file_id && deleteFromDrive) {
+                try {
+                  await this.gdrive.deleteFile(record.drive_file_id);
+                  logger.info(`Backup cleanup: deleted from Drive: ${record.local_path}`);
+                } catch (error: any) {
+                  logger.error(`Failed to delete from Drive during backup cleanup: ${record.local_path}: ${error.message || error}`);
+                }
+              }
+              FileRecordModel.markDeleted(record.local_path);
+            }
+          }
+        }
+      } catch (cleanupError: any) {
+        logger.error(`Failed to execute backup deletion cleanup: ${cleanupError.message || cleanupError}`);
       }
 
       // Mark job as completed
@@ -279,7 +337,7 @@ export class SyncService extends EventEmitter {
    * Handle file deletion (from watcher).
    */
   async handleFileDeletion(filePath: string): Promise<void> {
-    const deleteFromDrive = SettingsModel.get('delete_on_drive_when_deleted') === 'true';
+    const deleteFromDrive = SettingsModel.get('watcher_delete_on_drive') === 'true';
     const record = FileRecordModel.findByPath(filePath);
 
     if (record?.drive_file_id && deleteFromDrive) {

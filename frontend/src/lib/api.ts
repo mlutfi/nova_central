@@ -1,3 +1,5 @@
+import { toast } from 'sonner';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4400/api';
 
 interface ApiOptions {
@@ -107,9 +109,19 @@ async function request<T = any>(
 
     return { data, error: null, status: response.status };
   } catch (error: any) {
+    console.error('API request failed:', error);
+    const errorMessage = 'Cannot connect to the backend server. Please make sure the backend process is running.';
+
+    if (typeof window !== 'undefined') {
+      toast.error('Backend server is unreachable. Please make sure the server is running.', {
+        id: 'backend-server-down-toast',
+        duration: 5000,
+      });
+    }
+
     return {
       data: null,
-      error: error.message || 'Network error',
+      error: errorMessage,
       status: 0,
     };
   }

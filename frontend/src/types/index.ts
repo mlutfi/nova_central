@@ -151,6 +151,9 @@ export interface AppSettings {
   max_file_size_mb?: string;
   auto_backup_enabled?: string;
   file_watcher_enabled?: string;
+  watcher_delete_on_drive?: string;
+  backup_delete_on_drive?: string;
+  backup_delete_local?: string;
   [key: string]: string | undefined;
 }
 
