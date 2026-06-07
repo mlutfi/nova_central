@@ -86,6 +86,22 @@ export const BackupModel = {
     ).run(id);
   },
 
+  cancelAll(): number {
+    const db = getDatabase();
+    const result = db.prepare(
+      "UPDATE backup_jobs SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP WHERE status = 'running'"
+    ).run();
+    return result.changes;
+  },
+
+  cleanupStaleJobs(): number {
+    const db = getDatabase();
+    const result = db.prepare(
+      "UPDATE backup_jobs SET status = 'failed', error_message = 'Interrupted by server restart', completed_at = CURRENT_TIMESTAMP WHERE status = 'running'"
+    ).run();
+    return result.changes;
+  },
+
   getStats() {
     const db = getDatabase();
     const total = db.prepare('SELECT COUNT(*) as count FROM backup_jobs').get() as { count: number };

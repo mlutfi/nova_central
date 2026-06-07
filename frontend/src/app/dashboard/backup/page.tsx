@@ -109,6 +109,7 @@ export default function BackupPage() {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
+                  timeZone: status.timezone || 'UTC',
                 }).format(new Date(status.serverTime))}, ${new Date(
                   status.serverTime
                 ).toLocaleTimeString('en-US', {
@@ -116,9 +117,13 @@ export default function BackupPage() {
                   minute: '2-digit',
                   second: '2-digit',
                   hour12: true,
+                  timeZone: status.timezone || 'UTC',
                 })}`
                 : 'Loading...'}
             </strong>
+            {status?.timezone && (
+              <span className="ml-1 text-xs text-muted-foreground/70">({status.timezone})</span>
+            )}
           </span>
         </div>
       </FadeIn>
@@ -236,6 +241,9 @@ export default function BackupPage() {
                         onChange={(e) => setScheduleTime(e.target.value)}
                         className="flex-1"
                       />
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {status?.timezone || settings?.timezone || 'UTC'}
+                      </span>
                       <Button onClick={handleSaveSchedule} disabled={isSavingSchedule}>
                         <Save className="w-4 h-4 mr-2" />
                         Save

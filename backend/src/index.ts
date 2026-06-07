@@ -14,6 +14,7 @@ import { setGDriveService } from './controllers/filemanager.controller.js';
 import { setBackgroundServices } from './controllers/settings.controller.js';
 import { taskService } from './services/task.service.js';
 import { SettingsModel } from './models/settings.model.js';
+import { BackupModel } from './models/backup.model.js';
 import { UserModel } from './models/user.model.js';
 import { logger } from './utils/logger.js';
 
@@ -44,6 +45,12 @@ async function bootstrap(): Promise<void> {
   // ─── Database Init (async for sql.js WASM loading) ───
   await initDatabase();
   SettingsModel.initDefaults();
+
+  // Clean up stale "running" jobs from previous server crashes/restarts
+  const staleCount = BackupModel.cleanupStaleJobs();
+  if (staleCount > 0) {
+    logger.info(`Cleaned up ${staleCount} stale backup job(s) from previous run`);
+  }
 
   // ─── Seed Admin User ───
   if (UserModel.count() === 0) {

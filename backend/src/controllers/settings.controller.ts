@@ -22,6 +22,7 @@ export const settingsValidation = [
   body('file_manager_path').optional().isString().trim(),
   body('drive_folder_id').optional().isString().trim(),
   body('backup_schedule').optional().isString().trim(),
+  body('timezone').optional().isString().trim(),
   body('auto_backup_enabled').optional().isIn(['true', 'false']),
   body('file_watcher_enabled').optional().isIn(['true', 'false']),
   body('delete_on_drive_when_deleted').optional().isIn(['true', 'false']),
@@ -95,7 +96,7 @@ export async function updateSettings(req: AuthRequest, res: Response): Promise<v
     }
 
     // Handle Scheduler and Watcher state changes
-    if (updates.auto_backup_enabled || updates.backup_schedule || updates.source_path) {
+    if (updates.auto_backup_enabled || updates.backup_schedule || updates.source_path || updates.timezone) {
       const autoEnabled = SettingsModel.get('auto_backup_enabled') === 'true';
       if (autoEnabled) {
         schedulerService?.restart();

@@ -274,6 +274,48 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="timezone" className="text-sm">Timezone</Label>
+              <select
+                id="timezone"
+                value={settings.timezone ?? 'UTC'}
+                onChange={(e) => updateSetting('timezone', e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-md outline-none focus:ring-2 focus:ring-ring"
+              >
+                <optgroup label="Common">
+                  <option value="UTC">UTC</option>
+                  <option value="Asia/Jakarta">Asia/Jakarta (WIB, UTC+7)</option>
+                  <option value="Asia/Makassar">Asia/Makassar (WITA, UTC+8)</option>
+                  <option value="Asia/Jayapura">Asia/Jayapura (WIT, UTC+9)</option>
+                  <option value="Asia/Singapore">Asia/Singapore (SGT, UTC+8)</option>
+                  <option value="Asia/Tokyo">Asia/Tokyo (JST, UTC+9)</option>
+                  <option value="Asia/Shanghai">Asia/Shanghai (CST, UTC+8)</option>
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST, UTC+5:30)</option>
+                  <option value="Asia/Dubai">Asia/Dubai (GST, UTC+4)</option>
+                </optgroup>
+                <optgroup label="Europe">
+                  <option value="Europe/London">Europe/London (GMT/BST)</option>
+                  <option value="Europe/Berlin">Europe/Berlin (CET/CEST)</option>
+                  <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                  <option value="Europe/Moscow">Europe/Moscow (MSK, UTC+3)</option>
+                </optgroup>
+                <optgroup label="Americas">
+                  <option value="America/New_York">America/New_York (EST/EDT)</option>
+                  <option value="America/Chicago">America/Chicago (CST/CDT)</option>
+                  <option value="America/Denver">America/Denver (MST/MDT)</option>
+                  <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                  <option value="America/Sao_Paulo">America/São Paulo (BRT, UTC-3)</option>
+                </optgroup>
+                <optgroup label="Pacific / Australia">
+                  <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+                  <option value="Australia/Perth">Australia/Perth (AWST, UTC+8)</option>
+                  <option value="Pacific/Auckland">Pacific/Auckland (NZST/NZDT)</option>
+                </optgroup>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Timezone used for scheduled backups and server time display.
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="max-uploads" className="text-sm">Max Concurrent Uploads</Label>
               <Input
                 id="max-uploads"

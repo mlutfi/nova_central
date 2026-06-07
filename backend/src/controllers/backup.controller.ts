@@ -53,12 +53,11 @@ export async function stopBackup(req: AuthRequest, res: Response): Promise<void>
       syncService.cancelSync();
     }
 
-    const running = BackupModel.getRunning();
-    if (running) {
-      BackupModel.cancel(running.id);
-    }
+    // Cancel ALL running jobs, not just the latest one
+    const cancelledCount = BackupModel.cancelAll();
+    logger.info(`Stopped backup: ${cancelledCount} running job(s) cancelled`);
 
-    res.json({ message: 'Backup stopped' });
+    res.json({ message: 'Backup stopped', cancelledJobs: cancelledCount });
   } catch (error: any) {
     logger.error(`Stop backup error: ${error.message || error}`);
     res.status(500).json({ error: 'Internal server error' });
@@ -79,6 +78,7 @@ export async function getStatus(req: AuthRequest, res: Response): Promise<void> 
       autoBackupEnabled: SettingsModel.get('auto_backup_enabled') === 'true',
       fileWatcherEnabled: SettingsModel.get('file_watcher_enabled') === 'true',
       serverTime: new Date().toISOString(),
+      timezone: SettingsModel.get('timezone') || 'UTC',
     });
   } catch (error: any) {
     logger.error(`Get status error: ${error.message || error}`);
@@ -148,6 +148,7 @@ export async function getDashboardStats(req: AuthRequest, res: Response): Promis
         backupSchedule: settings.backup_schedule,
       },
       serverTime: new Date().toISOString(),
+      timezone: settings.timezone || 'UTC',
     });
   } catch (error: any) {
     logger.error(`Get dashboard stats error: ${error.message || error}`);

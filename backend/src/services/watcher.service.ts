@@ -92,15 +92,19 @@ export class WatcherService {
     // Set new timer (500ms debounce)
     const timer = setTimeout(async () => {
       this.debounceTimers.delete(filePath);
+      let job: ReturnType<typeof BackupModel.create> | null = null;
       try {
         logger.debug(`File ${event}: ${filePath}`);
 
         // Create a watcher-type backup job for tracking
-        const job = BackupModel.create('watcher', filePath);
+        job = BackupModel.create('watcher', filePath);
         await this.syncService.syncSingleFile(filePath);
         BackupModel.updateProgress(job.id, 1, 0, 0, 1);
         BackupModel.complete(job.id);
       } catch (error: any) {
+        if (job) {
+          BackupModel.fail(job.id, error.message || 'Watcher sync failed');
+        }
         logger.error(`Watcher sync failed for ${filePath}: ${error.message || error}`);
       }
     }, 500);

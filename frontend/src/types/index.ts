@@ -101,6 +101,7 @@ export interface BackupStatus {
   currentJob: BackupJob | null;
   fileStats: FileStats;
   serverTime: string;
+  timezone: string;
 }
 
 // ─── Log Types ────────────────────────────────────────────────────────────────
@@ -146,6 +147,7 @@ export interface AppSettings {
   google_refresh_token?: string;
   drive_folder_id?: string;
   backup_schedule?: string;
+  timezone?: string;
   max_concurrent_uploads?: string;
   exclude_patterns?: string;
   max_file_size_mb?: string;
